@@ -1,0 +1,40 @@
+#[1] Output directory
+<Your Output Directory>
+#[3] Initial date (inclusive) (in the form DDMMYYYY)
+05062011
+#[5] Number of 27-day periods (/solar Rotations) to run  
+1
+#[7] Number of Longitude Points (will be spread evenly around 360deg)
+128
+#[9] Inner Radius (divided by rS, ie. a value of 30 yields an inner radius of 30rS)
+30
+#[11] Outer Radius (divided by rS, as above, 215 rS is Earth Radius)
+215
+#[13] Radial gridspace (deltaR, divided by rS as above)
+1
+#[15] Number of MAS ensemble members (default is 576 members)
+576
+#[17] File holding MJD's for start each Carrington rotation
+Obs\CR_MJD\2039_2300CRMJDstart.csv
+#[19] Directory containing ensemble files used to generate B (folder contains 'line [15]'-member MAS ens, files should be named vin_ensemble_CR####.dat)
+MASens\
+#[21] File containing longitudes of STEREO A for each Carrington Rotation
+Obs\STEREOlocFiles\stereoaEarthDiff2020.lst
+#[23] File containing longitudes of STEREO B for each Carrington Rotation
+Obs\STEREOlocFiles\stereobEarthDiff2020.lst
+#[25] File containing all STEREO A observations
+Obs\ObservationFiles\stereoa_20070101_20201231.lst
+#[27] File containing all STEREO B observations
+Obs\ObservationFiles\stereob_20070101_20201231.lst
+#[29] File containing all ACE observations
+Obs\ObservationFiles\ace_2007_2020.lst
+#[31] Which observations are to be assimilated (write a string of the letters A,B and/or C: A=STERA, B=STERB, C=ACE) eg. ABC means assimilated all obs. streams, AC means assimilated STER A and ACE only
+C
+#[33] Should R be generated as a percentage of the solar wind or as a constant supplied by the user (Write B for background solar wind or C for constant standard deviation, then provide 3 constants seperated by a space indicating the percentage of background (0,1] or constant>0 for STERA, STERB and ACE [even if not assim.])
+B 0.1 0.1 0.1
+#[35] Give localisation radius for B as a function of longitude (in degrees); 0= no localisation
+15
+#[37] Alpha (for use in solar wind propagation model, default=0.15)
+0.15
+#[39] r_H (for use in solar wind propagation model, default=50, value divided by rS as above)
+50

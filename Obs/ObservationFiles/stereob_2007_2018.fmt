@@ -1,0 +1,10 @@
+  FORMAT OF THE SUBSETTED FILE
+    
+    ITEMS                      FORMAT   
+     
+ 1 Year                          I4        
+ 2 DOY                           I4        
+ 3 Hour                          I3        
+ 4 SW Plasma Speed, km/s         F7.1      
+
+This file was produced by SPDF OMNIWeb Plus service
