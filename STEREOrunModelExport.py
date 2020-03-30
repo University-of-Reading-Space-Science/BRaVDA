@@ -21,12 +21,12 @@ close('all')
 
 #Find current directory
 currentDir=os.path.dirname(os.path.abspath(__file__))
-print('Parameter file: '+str(currentDir+'\\varSWDA.dat'))
+print('Parameter file: '+str(currentDir+'\\varSWDA.def'))
 
 #########################################################
 #Read in file containing all constants/directory names ((should be kept in same directory as this script))
 #########################################################
-fvSWDA=open(currentDir+'\\varSWDA.dat','r')
+fvSWDA=open(currentDir+'\\varSWDA.def','r')
 vSWDALines=fvSWDA.readlines()
 fvSWDA.close()
 

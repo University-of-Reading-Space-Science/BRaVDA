@@ -1,4 +1,4 @@
-#[1] Output directory
+#[1] Output directory (followed by a '\')
 <Your Output Directory>
 #[3] Initial date (inclusive) (in the form DDMMYYYY)
 05062011
@@ -23,9 +23,9 @@ Obs\STEREOlocFiles\stereoaEarthDiff2020.lst
 #[23] File containing longitudes of STEREO B for each Carrington Rotation
 Obs\STEREOlocFiles\stereobEarthDiff2020.lst
 #[25] File containing all STEREO A observations
-Obs\ObservationFiles\stereoa_20070101_20201231.lst
+Obs\ObservationFiles\stereoa_2007_2020.lst
 #[27] File containing all STEREO B observations
-Obs\ObservationFiles\stereob_20070101_20201231.lst
+Obs\ObservationFiles\stereob_2007_2020.lst
 #[29] File containing all ACE observations
 Obs\ObservationFiles\ace_2007_2020.lst
 #[31] Which observations are to be assimilated (write a string of the letters A,B and/or C: A=STERA, B=STERB, C=ACE) eg. ABC means assimilated all obs. streams, AC means assimilated STER A and ACE only
