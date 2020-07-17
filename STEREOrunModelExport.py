@@ -37,7 +37,7 @@ if not os.path.isdir(outputDir):
 
 #Copy varSWDA.dat file used for this run to the output directory so the user 
 #can see what parameters were used to generate the most *recent* output in that output dir
-shutil.copy2(currentDir+'\\varSWDA.dat',outputDir)
+shutil.copy2(currentDir+'\\varSWDA.def',outputDir)
 
 #Make all necessary directories in output directory to save files
 if not os.path.isdir(outputDir+'meanMAS/'):
