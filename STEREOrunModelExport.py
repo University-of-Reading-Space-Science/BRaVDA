@@ -257,8 +257,8 @@ if not os.path.isfile(mjdCRFile):
 steraLocFile=currentDir+'\\'+str(vSWDALines[21].strip())
 sterbLocFile=currentDir+'\\'+str(vSWDALines[23].strip())
 
-sterALon=readObsLocFileWindows(steraLocFile, mjdCRFile,noOfWindows)
-sterBLon=readObsLocFileWindows(sterbLocFile, mjdCRFile,noOfWindows)
+sterALon=mod(360*ones(noOfWindows)-readObsLocFileWindows(steraLocFile, mjdCRFile,noOfWindows),360)
+sterBLon=mod(360*ones(noOfWindows)-readObsLocFileWindows(sterbLocFile, mjdCRFile,noOfWindows),360)
 print('sterALon='+str(sterALon))
 print('sterBLon='+str(sterBLon))    
 

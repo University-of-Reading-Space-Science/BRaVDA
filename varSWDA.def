@@ -1,5 +1,5 @@
-#[1] Output directory (followed by a '\')
-<Your Output Directory>
+#[1] Output directory (followed by a '\ ')
+<your output dir>
 #[3] Initial date (inclusive) (in the form DDMMYYYY)
 05062011
 #[5] Number of 27-day periods (/solar Rotations) to run  
@@ -29,7 +29,7 @@ Obs\ObservationFiles\stereob_2007_2020.lst
 #[29] File containing all ACE observations
 Obs\ObservationFiles\ace_2007_2020.lst
 #[31] Which observations are to be assimilated (write a string of the letters A,B and/or C: A=STERA, B=STERB, C=ACE) eg. ABC means assimilated all obs. streams, AC means assimilated STER A and ACE only
-C
+AB
 #[33] Should R be generated as a percentage of the solar wind or as a constant supplied by the user (Write B for background solar wind or C for constant standard deviation, then provide 3 constants seperated by a space indicating the percentage of background (0,1] or constant>0 for STERA, STERB and ACE [even if not assim.])
 B 0.1 0.1 0.1
 #[35] Give localisation radius for B as a function of longitude (in degrees); 0= no localisation
