@@ -1,0 +1,5 @@
+Retrieved from PDS-PPI IGPP UCLA on Thu Jul 14 12:32:38 GMT 2022
+
+You can down this data again with the URL:
+
+/ditdos/download?id=pds://PPI/maven.mag.calibrated/data/ss/1sec/2014
