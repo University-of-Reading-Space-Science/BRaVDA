@@ -5,6 +5,7 @@ from scipy import optimize
 import os
 import shutil
 import sys
+import matplotlib.pyplot as plt
 
 import bravdaMethodsExport as bme
 from makeMASens import helioMASens
@@ -237,7 +238,7 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
                 os.makedirs(dirMJDpath)
 
             # Make MJD file, downloading new data if necessary
-            bme.makeMJDfile(currMJD[-1], noOfLonPoints, fileMJDpath, daySolarRot=27)
+            bme.makeMJDfile(currMJD[-1], noOfLonPoints, fileMJDpath, daySolarRot= 27.2753)
 
     #####################################################################################
     # Check existence of and make initial ensemble files if required for each window
@@ -794,7 +795,7 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
         # Set the initial solar wind speed as equal to the prior solar wind speed
         vIter[0, 0, :] = np.copy(vPrior[w, 0, :])
         forwardStateIter[0, 0, :] = np.copy(vIter[0, 0, :])
-
+        print(f'y={y}')
         # Run initial solar wind speed out into the heliosphere (from 30rS -> 215rS)
         # !Is this for loop necessary (vIter[0, :,:] = vPrior[w, :, :])?
         for rIndex in range(1, noOfRadPoints):
@@ -941,21 +942,22 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
         ##############################################################################
         # Plot solar wind speeds at STEREO A, STEREO B and ACE
         ##############################################################################
-        swFileDir = os.path.join(outputDir, 'Plots', 'swOver27d')
-        fig1, ax1 = bme.plotSWspeed(
-            deltaPhiDeg, vSterAPlot, swFileDir, 'STA', currMJD[w], fontSize=18, lWid=2.0
-        )
-        # plt.show()
+        if makePlots:
+            swFileDir = os.path.join(outputDir, 'Plots', 'swOver27d')
+            fig1, ax1 = bme.plotSWspeed(
+                deltaPhiDeg, vSterAPlot, swFileDir, 'STA', currMJD[w], fontSize=18, lWid=2.0
+            )
+            # plt.show()
 
-        fig2, ax2 = bme.plotSWspeed(
-            deltaPhiDeg, vSterBPlot, swFileDir, 'STB', currMJD[w], fontSize=18, lWid=2.0
-        )
-        # plt.show()
+            fig2, ax2 = bme.plotSWspeed(
+                deltaPhiDeg, vSterBPlot, swFileDir, 'STB', currMJD[w], fontSize=18, lWid=2.0
+            )
+            # plt.show()
 
-        fig3, ax3 = bme.plotSWspeed(
-            deltaPhiDeg, vACEPlot, swFileDir, 'ACE', currMJD[w], fontSize=18, lWid=2.0
-        )
-        # plt.show()
+            fig3, ax3 = bme.plotSWspeed(
+                deltaPhiDeg, vACEPlot, swFileDir, 'ACE', currMJD[w], fontSize=18, lWid=2.0
+            )
+            # plt.show()
 
         ###########################################################################
         # Output RMSEs for user
@@ -1030,7 +1032,7 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
             outputDir, 'STERA', f'obs_MJDstart{int(currMJD[w])}.txt'
         )
         with open(outSTERAObsFile, 'w') as fOutSTA:
-            np.savetxt(fOutSTA, yAPlot[::-1])
+            np.savetxt(fOutSTA, vSterAPlot[0, :])
 
         outSTERAmasFile = os.path.join(
             outputDir, 'STERA', f'masMean_MJDstart{int(currMJD[w])}.txt'
@@ -1057,7 +1059,7 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
             outputDir, 'STERB', f'obs_MJDstart{int(currMJD[w])}.txt'
         )
         with open(outSTERBObsFile, 'w') as fOutSTB:
-            np.savetxt(fOutSTB, yBPlot[::-1])
+            np.savetxt(fOutSTB, vSterBPlot[0, :])
 
         outSTERBmasFile = os.path.join(
             outputDir, 'STERB', f'masMean_MJDstart{int(currMJD[w])}.txt'
@@ -1084,7 +1086,7 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
             outputDir, 'ACE', f'obs_MJDstart{int(currMJD[w])}.txt'
         )
         with open(outACEObsFile, 'w') as fOutACE:
-            np.savetxt(fOutACE, yAPlot[::-1])
+            np.savetxt(fOutACE, vACEPlot[0, :])
 
         outACEmasFile = os.path.join(
             outputDir, 'ACE', f'masMean_MJDstart{int(currMJD[w])}.txt'

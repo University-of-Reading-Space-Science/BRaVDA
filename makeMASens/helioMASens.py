@@ -15,7 +15,6 @@ import makeMASens.bravdaEns as bEns
 import pandas as pd
 import h5py
 
-
 def observerReadH5(ephFile, body, times):
     # Function to extract the locations of a celestrial body/spacecraft specified in the
     # ephemeris HDF5 file at specific times.
@@ -29,13 +28,13 @@ def observerReadH5(ephFile, body, times):
     #     the data is replaced with NaNs
 
     fileName = ephFile
-    # body = 'SO'
     startDate = times.min()
     endDate = times.max()
 
     # Check body specified is a viable option
     possibleBodies = ['MERCURY', 'VENUS', 'EARTH', 'MARS',
                       'PSP', 'STERA', 'STERB', 'SO']
+
     if body.upper() in possibleBodies:
         body = body.upper()
     else:
@@ -43,6 +42,7 @@ def observerReadH5(ephFile, body, times):
         print(f'Only {possibleBodies} are valid.')
         print('Defaulting to Earth')
         body = ['EARTH']
+
 
     with h5py.File(fileName, "r") as f:
         # Extract variables

@@ -265,6 +265,9 @@ def readObsFileAvg(obsFile, mjdFile, initTime, finalTime):
         else:
             observations[k] = 9999.9
 
+    # Filter out any NaNs and replace with 9999.9 for BRaVDA to filter later
+    observations = [9999.9 if np.isnan(x) else x for x in observations]
+
     return observations
 
 
@@ -336,7 +339,7 @@ def readObsLocFileWindows(obsLocFile, mjdCRFile, noOfWindows):
     return obsOut
 
 
-def makeMJDfile(MJDstart, noOfLon, fileMJDOut, daySolarRot=27):
+def makeMJDfile(MJDstart, noOfLon, fileMJDOut, daySolarRot=27.2753):
     # Function to make MJD file for one solar rotation from MJD start of length daySolarRot
 
     # Define timestep as length of solar rotation divided by number of lon points during rotation
@@ -367,15 +370,24 @@ def createUnpertAndBMatrix(
 
     # Read input ensemble file
     vIn = np.loadtxt(ensFile)
+    '''plt.plot(range(len(vIn[0, :])), vIn[0, :])
+    plt.show()
+    print(np.shape(vIn))'''
 
-    ###################################################
+    #sys.exit()
+    ################################
     # Rotate vIn to required Carrington longitude
-    rotLonCoord = int(np.round(128 * ((currMJD - initMJDCR) / 27.0)))
+    ###############################
+    rotLonCoord = int(np.round(128 * (1 - ((currMJD - initMJDCR) / 27.2753))))
     vIn[:, :] = np.append(
         vIn[:, rotLonCoord:], vIn[:, :rotLonCoord], axis=1
     )
     ####################################################
 
+    '''plt.plot(range(len(vIn[0, :])), vIn[0, :])
+    plt.show()
+    print(np.shape(vIn))
+    sys.exit()'''
     # Extract the unperturbed ensemble member (the first one)
     unperturbEnsMem = vIn[0, :]
 
@@ -420,7 +432,9 @@ def createUnpertAndBMatrix(
         plt.ylabel('Carrington longitude coordinate')
         plt.title('Localised B matrix')
         plt.show()'''
-
+    '''plt.plot(range(len(unperturbEnsMem)), unperturbEnsMem)
+    plt.show()
+    print(np.shape(vIn))'''
     return unperturbEnsMem, meanEns[:noOfLonPoints], B[:noOfLonPoints, :noOfLonPoints]
 
 
@@ -879,6 +893,7 @@ def plotSWspeed(
         nrows=1, ncols=1, figsize=(12, 6),
         # constrained_layout=True
     )
+
     # plt.figure(figsize=(12, 6))
     ax.plot(
         np.arange(0, 359, deltaPhiDeg), vPlot[0, :],
@@ -900,15 +915,21 @@ def plotSWspeed(
     ax.set_ylabel('Speed (km/s)', fontsize=fontSize)
     ax.set_xlim(0, 360)
     ax.set_ylim(240, 800)
-    ax.set_yticks(
-        np.arange(300, 801, 100), ('300', '400', '500', '600', '700', '800'),
-        fontsize=fontSize
-    )
-    # xticks(np.arange(0, 361, 120), ('0', '9', '18', '27'), fontsize=18)
-    ax.set_xticks(
-        np.append(np.arange(0, 361, 53.3), 360), ('0', '4', '8', '12', '16', '20', '24', '27'),
-        fontsize=fontSize
-    )
+
+    # Set fontsize for axis ticks
+    ax.tick_params(axis='both', which='major', labelsize=fontSize)
+    ax.tick_params(axis='both', which='minor', labelsize=int(0.8 * fontSize))
+
+    # Set x and y ticks
+    ax.set_yticks(np.arange(300, 801, 100))
+    ax.set_yticklabels(['300', '400', '500', '600', '700', '800'])
+
+    ax.set_xticks(np.append(np.arange(0, 361, 53.3), 360))
+    ax.set_xticklabels(['0', '4', '8', '12', '16', '20', '24', '27'])
+
+    # ax.set_xticks(
+    #    np.append(np.arange(0, 361, 53.3), 360), ('0', '4', '8', '12', '16', '20', '24', '27'),
+    #    fontsize=fontSize)
     # if w == 0:
     plt.title(fr'Solar wind speed at {spacecraftName}', fontsize=fontSize)
     ax.legend()

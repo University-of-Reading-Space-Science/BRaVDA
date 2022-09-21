@@ -151,7 +151,6 @@ def generate_input_ensemble(phi, theta, vr_map,
     assert (Nens > 0)
 
     vr_longs = phi[0, :]
-
     lats_E = reflats
 
     vr_E = interp2d(vr_longs, lats_E, vr_map, phi, theta)

@@ -10,7 +10,6 @@ import os
 from pyhdf.SD import SD, SDC
 import numpy as np
 
-
 # Get MAS data from MHDweb
 def getMASboundaryconditions(
         cr=np.NaN, dirLoc='', observatory='',
@@ -290,8 +289,8 @@ def get_MAS_maps(cr, dirLoc):
     vr_lats = (np.pi / 2) - MAS_vr_Xm
 
     # flip lats, so they're increasing in value
-    vr_lats = np.flipud(vr_lats)
-    vr_map = np.fliplr(vr_map)
+    #vr_lats = np.flipud(vr_lats)
+    #vr_map = np.fliplr(vr_map)
 
     vr_longs = MAS_vr_Xa
 
