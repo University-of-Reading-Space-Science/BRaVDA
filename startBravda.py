@@ -9,7 +9,7 @@ import runBravdaExport as rbe
 
 
 def bravdafunction(forecastdate, obsToUse = 'C', usecustomens = True, 
-                   runoutputdir = '' ):
+                   runoutputdir = '', plottimeseries = True):
     rdm.seed(20000)
     #################################
     # Data to be provided by user
@@ -81,7 +81,7 @@ def bravdafunction(forecastdate, obsToUse = 'C', usecustomens = True,
     ############################################################################
     # Specify whether you wish to make plots of solar wind speed over 27 days
     ############################################################################
-    makePlots = True
+    makePlots = plottimeseries
 
     rbe.runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
                   initDate, noOfConsecWindows, noOfMASens, locRad, gTol, makePlots,
