@@ -258,7 +258,7 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
                 print(f'Generating MAS ensembles for CR {currCR[w]}...')
     
                 # Generate path to ephemerisMSL.hdf5 file (should be in makeMASens, don't move)
-                ephemFile = os.path.join('makeMASens', 'ephemerisMSL.hdf5')
+                ephemFile = os.path.join(currentDir,'makeMASens', 'ephemerisMSL.hdf5')
                 helioMASens.makeMASens(
                     fileCRstartMJD, currCR[w], currCR[w] + 1, nMASens, noOfLonPoints,
                     ephemFile, downMASdir, dirMASens,
@@ -417,6 +417,7 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
         ###################################
         # Read observation files
         ###################################
+        
         yA = bme.readObsFileAvg(fileObsA, fileMJD[w], currMJD[w], currMJD[w] + 27)
         yB = bme.readObsFileAvg(fileObsB, fileMJD[w], currMJD[w], currMJD[w] + 27)
         yC = bme.readObsFileAvg(fileObsACE, fileMJD[w], currMJD[w], currMJD[w] + 27)

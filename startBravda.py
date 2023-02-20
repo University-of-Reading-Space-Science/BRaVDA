@@ -16,6 +16,9 @@ def bravdafunction(forecastdate, obsToUse = 'C', usecustomens = True,
     #################################
     # Find current directory
     currentDir = os.path.dirname(os.path.abspath(rbe.__file__))
+    #make this the owrking directory?
+
+
     
     ###########################################################
     # Define relevant file/directories to runBravda function
