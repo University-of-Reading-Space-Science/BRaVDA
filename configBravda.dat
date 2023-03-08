@@ -11,8 +11,8 @@ Obs\AbsLocFiles\stereob_2006_2029.lst
 #[11] File containing positions of ACE/EARTH for each Carrington Rotation
 Obs\AbsLocFiles\earth_2000_2030.lst
 #[13] File containing all STEREO A observations
-Obs\ObservationFiles\STA_200711_to_202311.txt
+Obs\ObservationFiles\STEREO-A_observations.txt
 #[15] File containing all STEREO B observations
 Obs\ObservationFiles\STEREO-B_observations.txt
 #[17] File containing all ACE observations
-Obs\ObservationFiles\Earth_200711_to_202311.txt
+Obs\ObservationFiles\OMNI_observations.txt
