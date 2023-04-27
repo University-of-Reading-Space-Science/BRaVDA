@@ -9,7 +9,7 @@ import runBravdaExport as rbe
 
 
 def bravdafunction(forecastdate, obsToUse = 'C', usecustomens = True, 
-                   runoutputdir = '', plottimeseries = True):
+                   runoutputdir = '', plottimeseries = True, corona = 'MAS'):
     rdm.seed(20000)
     #################################
     # Data to be provided by user
@@ -28,7 +28,10 @@ def bravdafunction(forecastdate, obsToUse = 'C', usecustomens = True,
     configFile = os.path.join(currentDir, 'configBravda.dat')
     
     # Specify location of file containing necessary HUX variables
-    huxVarFile = os.path.join(currentDir, 'huxVar.dat')
+    if corona == 'MAS':
+        huxVarFile = os.path.join(currentDir, 'huxVar_MAS.dat')
+    elif corona == 'WSA':
+        huxVarFile = os.path.join(currentDir, 'huxVar_WSA.dat')
     
     # Specify output directory
     if runoutputdir:
