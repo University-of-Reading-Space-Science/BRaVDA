@@ -13,7 +13,7 @@ import numpy as np
 # Get MAS data from MHDweb
 def getMASboundaryconditions(
         cr=np.NaN, dirLoc='', observatory='',
-        runtype='', runnumber=''
+        runtype='', runnumber='', masres = ''
 ):
     """
     A function to grab the  Vr and Br boundary conditions from MHDweb. An order
@@ -48,6 +48,14 @@ def getMASboundaryconditions(
 
     # the order of preference for different MAS run results
     overwrite = False
+    
+    if not masres:
+        masres_order = ['high', 'medium']
+    else:
+        masres_order = [str(masres)]
+        overwrite = True  # If the user wants a specific observatory, overwrite what's already downloaded
+
+    
     if not observatory:
         observatories_order = [
             'hmi', 'mdi', 'solis', 'gong', 'mwo', 'wso', 'kpo'
@@ -89,25 +97,25 @@ def getMASboundaryconditions(
     ) or overwrite):
         # check if the files already exist
         # Search MHDweb for a HelioMAS run, in order of preference
-        h = httplib2.Http()
+        h = httplib2.Http(disable_ssl_certificate_validation=False)
         foundfile = False
-        for masob in observatories_order:
-            for masrun in runtype_order:
-                for masnum in runnumber_order:
-                    urlbase = (
-                        f'{heliomas_url_front}{int(cr)}-medium/'
-                        f'{masob}_{masrun}_mas_std_{masnum}/helio/'
-                    )
-                    url = f'{urlbase}vr{heliomas_url_end}'
-                    # print(url)
+        for res in masres_order:
+            for masob in observatories_order:
+                for masrun in runtype_order:
+                    for masnum in runnumber_order:
+                        urlbase = (heliomas_url_front + str(int(cr)) + '-' +
+                                   res + '/' + masob + '_' +
+                                   masrun + '_mas_std_' + masnum + '/helio/')
+                        url = urlbase + 'br' + heliomas_url_end
 
-                    # see if this vr file exists
-                    resp = h.request(url, 'HEAD')
-                    if int(resp[0]['status']) < 400:
-                        foundfile = True
-                        # print(url)
+                        # See if this br file exists
+                        resp = h.request(url, 'HEAD')
+                        if int(resp[0]['status']) < 400:
+                            foundfile = True
 
-                    # exit all the loops - clumsy, but works
+                        # Exit all the loops - clumsy, but works
+                        if foundfile:
+                            break
                     if foundfile:
                         break
                 if foundfile:

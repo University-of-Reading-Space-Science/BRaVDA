@@ -12,7 +12,8 @@ from makeMASens import helioMASens
 
 
 def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
-              initDate, noOfWindows, nMASens, locRad, gTol, makePlots):
+              initDate, noOfWindows, nMASens, locRad, gTol, makePlots,
+              usecustomens = False):
     # Initialise timer
     start_time = time.time()
 
@@ -245,23 +246,27 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
     #####################################################################################
     # Directory to hold solar wind ens files specific to this run
     filesVrEns = []  # Variable to hold required initial solar wind speed ensemble file names for this run
-    for w in range(noOfWindows):
-        filesVrEns.append(f'{dirMASens}vin_ensemble_CR{currCR[w]}.dat')
-
-        if not os.path.isfile(filesVrEns[w]):
-            # If MAS ensemble file does not exist, make it
-            print(f'Generating MAS ensembles for CR {currCR[w]}...')
-
-            # Generate path to ephemerisMSL.hdf5 file (should be in makeMASens, don't move)
-            ephemFile = os.path.join('makeMASens', 'ephemerisMSL.hdf5')
-            helioMASens.makeMASens(
-                fileCRstartMJD, currCR[w], currCR[w] + 1, nMASens, noOfLonPoints,
-                ephemFile, downMASdir, dirMASens,
-                lat_rot_sigma=5 * np.pi / 180, lat_dev_sigma=2 * np.pi / 180,
-                long_dev_sigma=2 * np.pi / 180, r_in=innerRad
-            )
-        else:
-            print(f'MAS ensembles exist for CR {currCR[w]}')
+    if usecustomens:
+        filesVrEns.append(f'{dirMASens}customensemble.dat')
+    else:
+        for w in range(noOfWindows):
+            filesVrEns.append(f'{dirMASens}vin_ensemble_CR{currCR[w]}.dat')
+           
+    
+            if not os.path.isfile(filesVrEns[w]):
+                # If MAS ensemble file does not exist, make it
+                print(f'Generating MAS ensembles for CR {currCR[w]}...')
+    
+                # Generate path to ephemerisMSL.hdf5 file (should be in makeMASens, don't move)
+                ephemFile = os.path.join(currentDir,'makeMASens', 'ephemerisMSL.hdf5')
+                helioMASens.makeMASens(
+                    fileCRstartMJD, currCR[w], currCR[w] + 1, nMASens, noOfLonPoints,
+                    ephemFile, downMASdir, dirMASens,
+                    lat_rot_sigma=5 * np.pi / 180, lat_dev_sigma=2 * np.pi / 180,
+                    long_dev_sigma=2 * np.pi / 180, r_in=innerRad
+                )
+            else:
+                print(f'MAS ensembles exist for CR {currCR[w]}')
 
     ############################################################################
     # Check if mid-points file exists for these windows, if not, make it
@@ -412,6 +417,7 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
         ###################################
         # Read observation files
         ###################################
+        
         yA = bme.readObsFileAvg(fileObsA, fileMJD[w], currMJD[w], currMJD[w] + 27)
         yB = bme.readObsFileAvg(fileObsB, fileMJD[w], currMJD[w], currMJD[w] + 27)
         yC = bme.readObsFileAvg(fileObsACE, fileMJD[w], currMJD[w], currMJD[w] + 27)
