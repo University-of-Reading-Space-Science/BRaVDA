@@ -339,6 +339,36 @@ def readObsLocFileWindows(obsLocFile, mjdCRFile, noOfWindows):
     return obsOut
 
 
+def getObsPos(
+        obsLocFile, earthLocFile, mjdCRFile, noOfWindows,
+        rS, innerRadRs, deltaRrs, deltaPhiDeg
+):
+    # Read in observation positions
+    readObsPos = bme.readObsLocFileWindows(obsLocFile, mjdCRFile, noOfWindows)
+    readEarthPos = bme.readObsLocFileWindows(earthLocFile, mjdCRFile, noOfWindows)
+
+    # Extract difference between Earth and observation locations
+    obsEarthPosDiff = readEarthPos - readObsPos
+
+    # Extract radial positions
+    obsRadAU = readObsPos[1, :]
+
+    # Convert radial positions from AU to solar radii
+    obsRadRs = obsRadAU * 215
+    obsRadKm = obsRadRs * rS
+
+    # Get radial coordinates of obs.
+    obsRadCoord = ((obsRadKm - innerRadRs) / deltaRrs - 1).round().astype(int)
+
+    # Extract longitude positions
+    obsLon = np.mod(360 * np.ones(noOfWindows) - obsEarthPosDiff[0, :], 360)
+
+    # Set up model coordinates for the longitudes
+    obsLonCoord = (obsLon / deltaPhiDeg).round().astype(int)
+
+    return obsRadAU, obsRadRs, obsRadKm, obsRadCoord, obsLon, obsLonCoord
+
+
 def makeMJDfile(MJDstart, noOfLon, fileMJDOut, daySolarRot=27.2753):
     # Function to make MJD file for one solar rotation from MJD start of length daySolarRot
 

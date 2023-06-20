@@ -92,3 +92,10 @@ def bravdafunction(forecastdate, obsToUse = 'C', usecustomens = True,
     rbe.runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
                   initDate, noOfConsecWindows, noOfMASens, locRad, gTol, makePlots,
                   usecustomens = usecustomens)
+
+if __name__=="__main__":
+    #Specify forecastDate
+    fcDate = datetime.datetime(2011, 8, 11)
+    # Run BRaVDA function
+    bravdafunction(fcDate, obsToUse='C', usecustomens=False,
+                   runoutputdir='', plottimeseries=True, corona='MAS')
