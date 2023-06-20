@@ -344,8 +344,8 @@ def getObsPos(
         rS, innerRadRs, deltaRrs, deltaPhiDeg
 ):
     # Read in observation positions
-    readObsPos = bme.readObsLocFileWindows(obsLocFile, mjdCRFile, noOfWindows)
-    readEarthPos = bme.readObsLocFileWindows(earthLocFile, mjdCRFile, noOfWindows)
+    readObsPos = readObsLocFileWindows(obsLocFile, mjdCRFile, noOfWindows)
+    readEarthPos = readObsLocFileWindows(earthLocFile, mjdCRFile, noOfWindows)
 
     # Extract difference between Earth and observation locations
     obsEarthPosDiff = readEarthPos - readObsPos

@@ -283,54 +283,22 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
     # Read in mid-points and locations, then extract the radii/longitudes of
     # STEREO A and B that are relevant for this run
     ##################################################################################
-    # Read in observation positions
-    readSterAPos = bme.readObsLocFileWindows(steraLocFile, mjdCRFile, noOfWindows)
-    readSterBPos = bme.readObsLocFileWindows(sterbLocFile, mjdCRFile, noOfWindows)
-    readEarthPos = bme.readObsLocFileWindows(earthLocFile, mjdCRFile, noOfWindows)
-
-    # Extract difference between Earth and observation locations
-    sterAEarthPosDiff = readEarthPos - readSterAPos
-    sterBEarthPosDiff = readEarthPos - readSterBPos
-    aceEarthPosDiff = readEarthPos - readEarthPos
-
-    ##########################################
-    # Extract radial positions
-    ##########################################
-    sterARadAU = readSterAPos[1, :]
-    sterBRadAU = readSterBPos[1, :]
-    earthRadAU = readEarthPos[1, :]
-    # At present, ACE is assumed to be at the same place as Earth. Change if necessary
-    aceRadAU = readEarthPos[1, :]
-
-    # Convert radial positions from AU to solar radii
-    sterARadRs = sterARadAU * 215
-    sterBRadRs = sterBRadAU * 215
-    earthRadRs = earthRadAU * 215
-    aceRadRs = aceRadAU * 215
-
-    sterARadKm = sterARadRs * rS
-    sterBRadKm = sterBRadRs * rS
-    aceRadKm = aceRadRs * rS
-    earthRadKm = earthRadRs * rS
-
-    # Get radial coordinates of obs.
-    sterARadCoord = ((sterARadKm - innerRadRs) / deltaRrs - 1).round().astype(int)
-    sterBRadCoord = ((sterBRadKm - innerRadRs) / deltaRrs - 1).round().astype(int)
-    aceRadCoord = ((aceRadKm - innerRadRs) / deltaRrs - 1).round().astype(int)
-    earthRadCoord = ((earthRadKm - innerRadRs) / deltaRrs - 1).round().astype(int)
-
-    # Extract longitude positions
-    sterALon = np.mod(360 * np.ones(noOfWindows) - sterAEarthPosDiff[0, :], 360)
-    sterBLon = np.mod(360 * np.ones(noOfWindows) - sterBEarthPosDiff[0, :], 360)
-    earthLon = np.zeros(noOfWindows)
-    aceLon = np.mod(360 * np.ones(noOfWindows) - aceEarthPosDiff[0, :], 360)
-
-    # Set up model coordinates for the longitudes
-    # STEREO satellite locations
-    sterALonCoord = (sterALon / deltaPhiDeg).round().astype(int)
-    sterBLonCoord = (sterBLon / deltaPhiDeg).round().astype(int)
-    earthLonCoord = (earthLon / deltaPhiDeg).round().astype(int)
-    aceLonCoord = (aceLon / deltaPhiDeg).round().astype(int)
+    sterARadAU, sterARadRs, sterARadKm, sterARadCoord, sterALon, sterALonCoord = bme.getObsPos(
+        steraLocFile, earthLocFile, mjdCRFile, noOfWindows,
+        rS, innerRadRs, deltaRrs, deltaPhiDeg
+    )
+    sterBRadAU, sterBRadRs, sterBRadKm, sterBRadCoord, sterBLon, sterBLonCoord = bme.getObsPos(
+        sterbLocFile, earthLocFile, mjdCRFile, noOfWindows,
+        rS, innerRadRs, deltaRrs, deltaPhiDeg
+    )
+    aceRadAU, aceRadRs, aceRadKm, aceRadCoord, aceLon, aceLonCoord = bme.getObsPos(
+        earthLocFile, earthLocFile, mjdCRFile, noOfWindows,
+        rS, innerRadRs, deltaRrs, deltaPhiDeg
+    )
+    earthRadAU, earthRadRs, earthRadKm, earthRadCoord, earthLon, earthLonCoord = bme.getObsPos(
+        earthLocFile, earthLocFile, mjdCRFile, noOfWindows,
+        rS, innerRadRs, deltaRrs, deltaPhiDeg
+    )
 
     # Output time it has taken to get to start of windows loop
     print('\n---------------------------------------------------------------------------------')
