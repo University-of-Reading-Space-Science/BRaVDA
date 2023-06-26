@@ -4,15 +4,7 @@ Obs/CR_MJD/2039_2300CRMJDstart.csv
 downMas/
 #[5] Directory containing ensemble files used to generate B (if they don't exist, they will be created)
 masEns/
-#[7] File containing positions of STEREO A for each Carrington Rotation
-Obs/AbsLocFiles/stereoa_2006_2029.lst
-#[9] File containing positions of STEREO B for each Carrington Rotation
-Obs/AbsLocFiles/stereob_2006_2029.lst
-#[11] File containing positions of ACE/EARTH for each Carrington Rotation
+#[7] File containing all observation filenames and obsName
+obsFile.dat
+#[9] File containing positions of ACE/EARTH for each Carrington Rotation
 Obs/AbsLocFiles/earth_2000_2030.lst
-#[13] File containing all STEREO A observations
-Obs/ObservationFiles/STEREO-A_observations.txt
-#[15] File containing all STEREO B observations
-Obs/ObservationFiles/STEREO-B_observations.txt
-#[17] File containing all ACE observations
-Obs/ObservationFiles/OMNI_observations.txt

@@ -646,20 +646,17 @@ def possibleObsCheck(obsToUse):
 
     return
 
-def makeRcomp(obsUncDict, radCoordDict, nObsDict, vPrior, obsToUse):
+def makeRcomp(obsUncDf, radCoordDict, nObsDict, vPrior, obsToUse):
     # Make R component of current observation
 
-    # Check obsToUse is viable option
-    possibleObsCheck(obsToUse)
-
-    # Calculate the uncertainty dependent on users choice in config file
-    if obsUncDict["BorC"] == 'B':
-        b1 = obsUncDict[obsToUse] * vPrior[radCoordDict[obsToUse], :].mean()
+    # Calculate the uncertainty dependent on users choice in obsFile.dat
+    if obsUncDf.loc[obsToUse]["obsErrCovType"] == 'B':
+        b1 = obsUncDf.loc[obsToUse]["obsErrCov"] * vPrior[radCoordDict[obsToUse], :].mean()
         obsUncComp = b1 * np.ones(nObsDict[obsToUse])
-    elif obsUncDict["BorC"] == 'C':
-        obsUncComp = obsUncDict[obsToUse] * np.ones(nObsDict[obsToUse])
+    elif obsUncDf.loc[obsToUse]["obsErrCovType"] == 'C':
+        obsUncComp = obsUncDf[obsToUse]["obsErrCov"] * np.ones(nObsDict[obsToUse])
     else:
-        print('First character should be a "B" or "C"')
+        print('obsErrCovType should be a "B" or "C"')
         print(('where B corresponds to a observation error standard deviation '
                'proportional to mean prior solar wind at obs. radius'))
         print('and C corresponds to a constant observation error standard deviation being used.')
@@ -673,15 +670,15 @@ def makeRcomp(obsUncDict, radCoordDict, nObsDict, vPrior, obsToUse):
 
 
 def extractRadObs(obsToUse, radCoordDict, noOfObsDict, radObs, nRadObs):
-    # Check obsToUse is viable option
-    possibleObsCheck(obsToUse)
 
-    # Input number of and radius of STEREO-A observations
+    # Input radius of observations into radObs
+    radObs.append(radCoordDict[obsToUse])
+
+    # Input number of observations into nRadObs
     if len(nRadObs) == 0:
         nRadObs.append(noOfObsDict[obsToUse])
     else:
         nRadObs.append(nRadObs[-1] + noOfObsDict[obsToUse])
-    radObs.append(radCoordDict[obsToUse])
 
     return radObs, nRadObs
 
@@ -689,102 +686,18 @@ def extractRadObs(obsToUse, radCoordDict, noOfObsDict, radObs, nRadObs):
 def makeObsForDA(
         y, H, R, yDict,
         obsToUse, radCoordDict, lonCoordDict,
-        obsUncDict, obsToBeTakenDict, nObsDict, vPrior, noOfLonPoints
+        obsUncDf, obsToBeTakenDict, nObsDict, vPrior, noOfLonPoints
 ):
-    #####################################################
-    # Perform initial checks
-    #####################################################
-    # Check obsToUse is viable option
-    possibleObsCheck(obsToUse)
-
-    # # Initialise obs.
-    # y = np.zeros(noOfObsTotal)
-    #
-    # # Obs. error covar. matrices for STERA, STERB and ACE
-    # RA = np.zeros((noOfObsA, noOfObsA))
-    # RB = np.zeros((noOfObsB, noOfObsB))
-    # RC = np.zeros((noOfObsC, noOfObsC))
-    #
-    # # Obs. error covar. for all obs. to be assimilated
-    # R = np.zeros((noOfObsTotal, noOfObsTotal))
-    #
-    # ###################################################
-    # # Generate observation operators
-    # ###################################################
-    # H = np.zeros((noOfObsTotal, noOfLonPoints))
-    # HA = bme.obsOp(noOfLonPoints, obsToBeTakenA, [sterALonCoord[w]])
-    # HB = bme.obsOp(noOfLonPoints, obsToBeTakenB, [sterBLonCoord[w]])
-    # HC = bme.obsOp(noOfLonPoints, obsToBeTakenC, [aceLonCoord[w]])
     # Extract required observation
     yComp = yDict[obsToUse]
 
     #Generate required component of observation covariance matrix
-    Rcomp = makeRcomp(obsUncDict, radCoordDict, nObsDict, vPrior, obsToUse)
+    Rcomp = makeRcomp(obsUncDf, radCoordDict, nObsDict, vPrior, obsToUse)
 
     # Generate observation operator for this component
     Hcomp = obsOp(noOfLonPoints, obsToBeTakenDict[obsToUse], [lonCoordDict[obsToUse]])
 
-    # # Add STEREO-A component into y, H and R
-    # if obsToUse == "A":
-    #
-    #
-    # # Add STEREO-B component into y, H and R
-    # if obsToUse == "B":
-    #     # Extract required observation
-    #     yComp = yDict["B"]
-    #
-    #     # Calculate the uncertainty dependent on users choice in config file
-    #     if obsUncDict["BorC"] == 'B':
-    #         b1 = obsUncDict["B"] * vPrior[w, radCoordDict["B"], :].mean()
-    #         obsUncComp = b1 * np.ones(nObsDict["B"])
-    #     elif obsUncDict["BorC"] == 'C':
-    #         obsUncComp = obsUncDict["B"] * np.ones(nObsDict["B"])
-    #     else:
-    #         print('First character should be a "B" or "C"')
-    #         print(('where B corresponds to a observation error standard deviation '
-    #                'proportional to mean prior solar wind at obs. radius'))
-    #         print('and C corresponds to a constant observation error standard deviation being used.')
-    #         print('Please update setupOfR accordingly. System will now exit...')
-    #         sys.exit()
-    #
-    #     # Assume observations are not correlated
-    #     Rcomp = np.diag(obsUncComp)
-    #
-    #     # Generate observation operator for this component
-    #     Hcomp = obsOp(noOfLonPoints, obsToBeTakenDict["B"], [lonCoordDict["B"]])
-    #
-    #
-    #     # Assume observations are not correlated
-    #     Rcomp = np.diag(obsUncComp)
-    #
-    #     # Generate observation operator for this component
-    #     Hcomp = obsOp(noOfLonPoints, obsToBeTakenDict["B"], [lonCoordDict["B"]])
-    #
-    # # Add ACE component into y, H and R
-    # if obsToUse == "C":
-    #     # Extract required observation
-    #     yComp = yDict["C"]
-    #
-    #     # Calculate the uncertainty dependent on users choice in config file
-    #     if obsUncDict["BorC"] == 'B':
-    #         b1 = obsUncDict["C"] * vPrior[w, radCoordDict["C"], :].mean()
-    #         obsUncComp = b1 * np.ones(nObsDict["C"])
-    #     elif obsUncDict["BorC"] == 'C':
-    #         obsUncComp = obsUncDict["C"] * np.ones(nObsDict["C"])
-    #     else:
-    #         print('First character should be a "B" or "C"')
-    #         print(('where B corresponds to a observation error standard deviation '
-    #                'proportional to mean prior solar wind at obs. radius'))
-    #         print('and C corresponds to a constant observation error standard deviation being used.')
-    #         print('Please update setupOfR accordingly. System will now exit...')
-    #         sys.exit()
-    #
-    #     # Assume observations are not correlated
-    #     Rcomp = np.diag(obsUncComp)
-    #
-    #     # Generate observation operator for this component
-    #     Hcomp = obsOp(noOfLonPoints, obsToBeTakenDict["C"], [lonCoordDict["C"]])
-
+    # Input extracted values into generic DA variables
     if len(y) == 0:
         y = yComp
         R = Rcomp
@@ -809,130 +722,6 @@ def makeObsForDA(
 
         # Append Hcomp onto H
         H.append(Hcomp, axis=0)
-    # ######################################################################
-    # # Make observation error covariance matrices (assumed diagonal,
-    # # i.e. all observations are uncorrelated)
-    # ######################################################################
-    #
-    # if str(splitLine[0]) == 'B':
-    #     # Generate observation errors proportional to mean of solar wind speed at obs. radius
-    #     obsUncA = (float(splitLine[1]) * vPrior[w, sterARadCoord[w], :].mean()) * np.ones(noOfObsA)
-    #     obsUncB = (float(splitLine[2]) * vPrior[w, sterBRadCoord[w], :].mean()) * np.ones(noOfObsB)
-    #     obsUncC = (float(splitLine[3]) * vPrior[w, earthRadCoord[w], :].mean()) * np.ones(noOfObsC)
-    # elif str(splitLine[0]) == 'C':
-    #     # Generate observation errors as a constant supplied by the user
-    #     obsUncA = float(splitLine[1]) * np.ones(noOfObsA)
-    #     obsUncB = float(splitLine[2]) * np.ones(noOfObsB)
-    #     obsUncC = float(splitLine[3]) * np.ones(noOfObsC)
-    # else:
-    #     print('First character should be a "B" or "C"')
-    #     print(('where B corresponds to a observation error standard deviation '
-    #            'proportional to mean prior solar wind at obs. radius'))
-    #     print('and C corresponds to a constant observation error standard deviation being used.')
-    #     print('Please update setupOfR accordingly. System will now exit...')
-    #     sys.exit()
-    #
-    # # Assume observations at different satellites are not correlated
-    # for i in range(noOfObsA):
-    #     RA[i, i] = obsUncA[i] * obsUncA[i]
-    # for i in range(noOfObsB):
-    #     RB[i, i] = obsUncB[i] * obsUncB[i]
-    # for i in range(noOfObsC):
-    #     RC[i, i] = obsUncC[i] * obsUncC[i]
-    #
-    # #########################################################################################
-    # # Update the generic DA variables depending upon what obs. the user wishes to assimilate
-    # #########################################################################################
-    # # Input appropriate parts into y, R and H to be used in DA
-    # if obsToUse == 'A':
-    #     # Make Observations
-    #     y[:noOfObsA] = np.copy(yA)
-    #
-    #     # Input appropriate components into full observation covariance matrix
-    #     R[:noOfObsA, :noOfObsA] = np.copy(RA)
-    #
-    #     # Input appropriate components into full observation covariance matrix
-    #     H[:noOfObsA, :] = np.copy(HA)
-    #
-    # elif obsToUse == 'B':
-    #     # Make Observations
-    #     y[:noOfObsB] = np.copy(yB)
-    #
-    #     # Input appropriate components into full observation covariance matrix
-    #     R[:noOfObsB, :noOfObsB] = np.copy(RB)
-    #
-    #     # Input appropriate components into full observation covariance matrix
-    #     H[:noOfObsB, :] = np.copy(HB)
-    # elif obsToUse == 'C':
-    #     # Make Observations
-    #     y[:noOfObsC] = np.copy(yC)
-    #
-    #     # Input appropriate components into full observation covariance matrix
-    #     R[:noOfObsC, :noOfObsC] = np.copy(RC)
-    #
-    #     # Input appropriate components into full observation covariance matrix
-    #     H[:noOfObsC, :] = np.copy(HC)
-    #
-    # elif obsToUse == 'AB':
-    #     # Make Observations
-    #     y[:noOfObsA] = np.copy(yA)
-    #     y[noOfObsA:(noOfObsA + noOfObsB)] = np.copy(yB)
-    #
-    #     # Input appropriate components into full observation covariance matrix
-    #     R[:noOfObsA, :noOfObsA] = np.copy(RA)
-    #     R[noOfObsA:(noOfObsA + noOfObsB), noOfObsA:(noOfObsA + noOfObsB)] = np.copy(RB)
-    #
-    #     # Input appropriate components into full observation covariance matrix
-    #     H[:noOfObsA, :] = np.copy(HA)
-    #     H[noOfObsA:(noOfObsA + noOfObsB), :] = np.copy(HB)
-    # elif obsToUse == 'AC':
-    #     # Make Observations
-    #     y[:noOfObsA] = np.copy(yA)
-    #     y[noOfObsA:] = np.copy(yC)
-    #
-    #     # Input appropriate components into full observation covariance matrix
-    #     R[:noOfObsA, :noOfObsA] = np.copy(RA)
-    #     R[noOfObsA:, noOfObsA:] = np.copy(RC)
-    #
-    #     # Input appropriate components into full observation covariance matrix
-    #     H[:noOfObsA, :] = np.copy(HA)
-    #     H[noOfObsA:, :] = np.copy(HC)
-    # elif obsToUse == 'BC':
-    #     # Make Observations
-    #     y[:noOfObsB] = np.copy(yB)
-    #     y[noOfObsB:] = np.copy(yC)
-    #
-    #     # Input appropriate components into full observation covariance matrix
-    #     R[:noOfObsB, :noOfObsB] = np.copy(RB)
-    #     R[noOfObsB:, noOfObsB:] = np.copy(RC)
-    #
-    #     # Input appropriate components into full observation covariance matrix
-    #     H[:noOfObsB, :] = np.copy(HB)
-    #     H[noOfObsB:, :] = np.copy(HC)
-    # elif obsToUse == 'ABC':
-    #     # Make Observations
-    #     y[:noOfObsA] = np.copy(yA)
-    #     y[noOfObsA:(noOfObsA + noOfObsB)] = np.copy(yB)
-    #     y[(noOfObsA + noOfObsB):] = np.copy(yC)
-    #
-    #     # Input appropriate components into full observation covariance matrix
-    #     R[:noOfObsA, :noOfObsA] = np.copy(RA)
-    #     R[noOfObsA:(noOfObsA + noOfObsB), noOfObsA:(noOfObsA + noOfObsB)] = np.copy(RB)
-    #     R[(noOfObsA + noOfObsB):, (noOfObsA + noOfObsB):] = np.copy(RC)
-    #
-    #     # Input appropriate components into full observation covariance matrix
-    #     H[:noOfObsA, :] = np.copy(HA)
-    #     H[noOfObsA:(noOfObsA + noOfObsB), :] = np.copy(HB)
-    #     H[(noOfObsA + noOfObsB):, :] = np.copy(HC)
-    # else:
-    #     print(
-    #         'obsToUse must equal "A", "B", "C", "AB", "AC", "BC" or "ABC"'
-    #         '(or some permutation of these) without spaces,\n'
-    #         'where A corresponds to STEREO A, B corresponds to STEREO B and C'
-    #         'corresponds to ACE data being assimilated\n'
-    #         'Please update obsToUse accordingly. System will now exit...'
-    #     )
-    #     sys.exit()
 
     return y, H, R
 

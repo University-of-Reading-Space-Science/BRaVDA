@@ -12,7 +12,7 @@ import bravdaMethodsExport as bme
 from makeMASens import helioMASens
 
 
-def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
+def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
               initDate, noOfWindows, nMASens, locRad, gTol, makePlots,
               usecustomens = False):
     # Initialise timer
@@ -36,26 +36,53 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
     fileCRstartMJD = os.path.join(currentDir, configLines[1].strip())
     downMASdir = os.path.join(currentDir, configLines[3].strip(), '')
     dirMASens = os.path.join(currentDir, configLines[5].strip(), '')
-    steraLocFile = os.path.join(currentDir, configLines[7].strip())
-    sterbLocFile = os.path.join(currentDir, configLines[9].strip())
-    earthLocFile = os.path.join(currentDir, configLines[11].strip())
-    fileObsA = os.path.join(currentDir, configLines[13].strip())
-    fileObsB = os.path.join(currentDir, configLines[15].strip())
-    fileObsC = os.path.join(currentDir, configLines[17].strip())
+    fileObs = os.path.join(currentDir, configLines[7].strip())
+    earthLocFile = os.path.join(currentDir, configLines[9].strip())
 
-    # Make dictionary holding obs files
-    fileObs = {
-        "A": fileObsA,
-        "B": fileObsB,
-        "C": fileObsC
-    }
+    # Read obs. location file
+    with open(fileObs, 'r') as fObs:
+        obsLines = fObs.readlines()
 
-    obsLocFiles = {
-        "A": steraLocFile,
-        "B": sterbLocFile,
-        "C": earthLocFile,
-        "earth": earthLocFile
-    }
+    # Calculate the number of observation streams contained within fileObs
+    nObsStreams = len(obsLines) - 1  # Subtract 1 to remove the header from nObsStreams
+
+    # Make sure obsLines contains more than just the header
+    if nObsStreams < 1:
+        print(f"{fileObs} should contain more than just a header.")
+        print("Add observation name, observation relative filepath, observation location relative filepath,")
+        print(" observation error covariance type (B = proportional to prior mean or C = Constant)")
+        print(" and observation error covariance value")
+        print("In the following format....")
+        print("obsName obsFile obsLocFile obsErrCovType obsErrCov")
+        print("<name> <rel. obsFilePath> <rel. obsLocFilePath> <B or C> <obsErrCov>")
+        print("All quantities should be separated by a <space>")
+        print("Don't delete the header!")
+
+    # Extract observation file information from obsLines
+    obsFileDf = pd.DataFrame(columns=["obsFilePath", "obsLocFilePath", "obsErrCovType", "obsErrCov"])
+    for i, ln in enumerate(obsLines):
+        # Ignore the header
+        if i > 0:
+            lnSplit = ln.split()
+
+            obsName = (lnSplit[0].strip()).upper()
+            obsFilePath = os.path.join(currentDir, lnSplit[1].strip())
+            obsLocFilePath = os.path.join(currentDir, lnSplit[2].strip())
+            obsErrCovType = lnSplit[3].strip()
+            obsErrCov = float(lnSplit[4].strip())
+            obsFileDf.loc[obsName] = [obsFilePath, obsLocFilePath, obsErrCovType, obsErrCov]
+
+    # Ensure all values in obsToAssim are upper-case
+    print(f'Observations to be assimilated: {obsToAssim}')
+    obsToAssim = [ota.upper() for ota in obsToAssim]
+
+    # Check all obsToAssim are named in the obsFile.dat
+    for ota in obsToAssim:
+        if ota not in obsFileDf.index:
+            print(f"{ota} is not in {fileObs}. Please update obsToAssim or {fileObs}")
+            print(" such that the required observation is in both.")
+            print("System will now exit...")
+            sys.exit()
 
     #########################################################
     # Read in file containing required inputs for the HUX solar wind
@@ -91,7 +118,7 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
     inWriteFile = os.path.join(outputDir, 'inputs.dat')
     with open(inWriteFile, 'w') as iwf:
         iwf.write(f'outputDir = {outputDir}\n')
-        iwf.write(f'obsToUse = {obsToUse}\n')
+        iwf.write(f'obsToAssim = {obsToAssim}\n')
         iwf.write(f'setupOfR = {setupOfR}\n')
         iwf.write(f'initDate = {initDate}\n')
         iwf.write(f'noOfConsecWindows = {noOfWindows}\n')
@@ -101,8 +128,16 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
 
     # Make all necessary directories in output directory to save files
     # List containing all folders to make
-    dirsToMake = ['meanMAS', 'prior', 'posterior', 'ACE', 'STERA', 'STERB']
+    dirsToMake = ['meanMAS', 'prior', 'posterior']
     for dirName in dirsToMake:
+        dirPath = os.path.join(outputDir, dirName, '')
+
+        # Check if dir exists, if not, make it
+        if not os.path.isdir(dirPath):
+            os.makedirs(dirPath)
+
+    #Make directories to hold all observation files
+    for dirName in obsFileDf.index:
         dirPath = os.path.join(outputDir, dirName, '')
 
         # Check if dir exists, if not, make it
@@ -158,27 +193,9 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
     # Convert rH to km from rS
     rH = rH * rS
 
-    #######################################
-    # Read in which obs. to assimilate
-    #######################################
-    # Observations assimilated
-    # Input a string of A, B and C where
-    # A=STERA, B=STERB and C='ACE' eg. for
-    # all assim, input obsToUse='ABC'
-    # obsToUse = str(vSWDALines[33].strip()).upper()
-    # Order the characters alphabetically and make upper-case
-    obsToUse = (obsToUse.strip()).upper()
-    obsToUse = ''.join(sorted(obsToUse))
-    print(f'Observations to be assimilated: {obsToUse}')
-
     ########################################################
     # Initialise arrays for use later in script
     ########################################################
-    # Observation vectors
-    yAllA = 9999 * np.ones(totalLonPoints)
-    yAllB = 9999 * np.ones(totalLonPoints)
-    yAllC = 9999 * np.ones(totalLonPoints)
-
     # Vectors to hold solar wind speeds
     vPrior = np.zeros((noOfWindows, noOfRadPoints, noOfLonPoints))
     vPosterior = np.zeros((noOfWindows, noOfRadPoints, noOfLonPoints))
@@ -298,33 +315,16 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
     # Read in mid-points and locations, then extract the radii/longitudes of
     # STEREO A and B that are relevant for this run
     ##################################################################################
-    # sterARadAU, sterARadRs, sterARadKm, sterARadCoord, sterALon, sterALonCoord = bme.getObsPos(
-    #     obsLocFiles["A"], obsLocFiles["earth"], mjdCRFile, noOfWindows,
-    #     rS, innerRadRs, deltaRrs, deltaPhiDeg
-    # )
-    # sterBRadAU, sterBRadRs, sterBRadKm, sterBRadCoord, sterBLon, sterBLonCoord = bme.getObsPos(
-    #     obsLocFiles["B"], obsLocFiles["earth"], mjdCRFile, noOfWindows,
-    #     rS, innerRadRs, deltaRrs, deltaPhiDeg
-    # )
-    # aceRadAU, aceRadRs, aceRadKm, aceRadCoord, aceLon, aceLonCoord = bme.getObsPos(
-    #     obsLocFiles["C"], obsLocFiles["earth"], mjdCRFile, noOfWindows,
-    #     rS, innerRadRs, deltaRrs, deltaPhiDeg
-    # )
-    # earthRadAU, earthRadRs, earthRadKm, earthRadCoord, earthLon, earthLonCoord = bme.getObsPos(
-    #     obsLocFiles["earth"], obsLocFiles["earth"], mjdCRFile, noOfWindows,
-    #     rS, innerRadRs, deltaRrs, deltaPhiDeg
-    # )
-
     obsPosDf = pd.DataFrame(columns=["radAU", "radRs", "radKm", "radCoord", "lon", "lonCoord"])
-    for obsName in ["A", "B", "C", "earth"]:
+    for obsName in obsFileDf.index:
+        fObsLoc = obsFileDf.loc[obsName]["obsLocFilePath"]
         radAU, radRs, radKm, radCoord, lon, lonCoord = bme.getObsPos(
-            obsLocFiles[obsName], obsLocFiles["earth"], mjdCRFile, noOfWindows,
+            fObsLoc, earthLocFile, mjdCRFile, noOfWindows,
             rS, innerRadRs, deltaRrs, deltaPhiDeg
         )
         obsPosDf.loc[obsName] = [radAU, radRs, radKm, radCoord, lon, lonCoord]
-    print(obsPosDf)
 
-    #sys.exit()
+    print(obsPosDf)
 
     # Output time it has taken to get to start of windows loop
     print('\n---------------------------------------------------------------------------------')
@@ -356,75 +356,32 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
         #############################################################################
         # Generate all observations
         #############################################################################
-        yA, yAPlot, obsToBeTakenA, noOfObsA = bme.makeObs(
-            fileObsA, fileMJD[w], currMJD[w], noOfLonPoints,
-            lowerCutOff=0, upperCutOff=5000
-        )
-        yB, yBPlot, obsToBeTakenB, noOfObsB = bme.makeObs(
-            fileObsB, fileMJD[w], currMJD[w], noOfLonPoints,
-            lowerCutOff=0, upperCutOff=5000
-        )
-        yC, yCPlot, obsToBeTakenC, noOfObsC = bme.makeObs(
-            fileObsC, fileMJD[w], currMJD[w], noOfLonPoints,
-            lowerCutOff=0, upperCutOff=5000
-        )
+        obsCompDf = pd.DataFrame(columns=["y", "yPlot", "obsToBeTaken", "noOfObs"])
+
+        for obsName in obsFileDf.index:
+            fObs = obsFileDf.loc[obsName]["obsFilePath"]
+            yTemp, yTempPlot, obsToBeTakenTemp, noOfObsTemp = bme.makeObs(
+                fObs, fileMJD[w], currMJD[w], noOfLonPoints,
+                lowerCutOff=0, upperCutOff=5000
+            )
+            obsCompDf.loc[obsName] = [yTemp, yTempPlot, obsToBeTakenTemp, noOfObsTemp]
 
         # Place all obs into a dictionary
-        yCompDict = {
-            "A": yA,
-            "B": yB,
-            "C": yC
-        }
+        obsCompDict = obsCompDf.to_dict()["y"]
 
-        ##########################################################
-        # Extract radial positions and number of observations
-        ##########################################################
-        obsToUseSplit = [x for x in obsToUse]
+        # Set up dictionaries containing the number of obs and which are to be taken
+        nObsDict = obsCompDf.to_dict()["noOfObs"]
+        obsToBeTakenDict = obsCompDf.to_dict()["obsToBeTaken"]
 
-        #Set up dictionaries containing the different obs. radial values
-        nObsDict = {
-            "A": noOfObsA,
-            "B": noOfObsB,
-            "C": noOfObsC
-        }
-        radCoordDict = {
-            "A": obsPosDf.loc["A"]["radCoord"][w],
-            "B": obsPosDf.loc["B"]["radCoord"][w],
-            "C": obsPosDf.loc["C"]["radCoord"][w]
-        }
+        # Set up dictionaries containing the obsservation's positional data
+        radCoordDict = {}
+        lonCoordDict = {}
+        for index, row in obsPosDf.iterrows():
+            radCoordDict[index] = row["radCoord"][w]
+            lonCoordDict[index] = row["lonCoord"][w]
 
-        lonCoordDict = {
-            "A": obsPosDf.loc["A"]["lonCoord"][w],
-            "B": obsPosDf.loc["B"]["lonCoord"][w],
-            "C": obsPosDf.loc["C"]["lonCoord"][w]
-        }
-        obsToBeTakenDict = {
-            "A": obsToBeTakenA,
-            "B": obsToBeTakenB,
-            "C": obsToBeTakenC
-        }
-
-        # Read in whether a constant obs. covariance matrix is required or if
-        # the uncertainty should be a percentage of the prior solar wind speed at the observation radius
-        splitLine = setupOfR.split(' ')
-        print(splitLine)
-
-        # Check that the correct number of variables have been specified
-        if len(splitLine) != 4:
-            print(
-                'Number of arguments in setupOfR should be four,'
-                'each separated with spaces, with structure of:'
-            )
-            print('[B or C] <float> <float> <float>.')
-            print('System will now exit')
-            sys.exit()
-
-        obsUncDict = {
-            "BorC": splitLine[0],
-            "A": float(splitLine[1]),
-            "B": float(splitLine[2]),
-            "C": float(splitLine[3])
-        }
+        # Extract the observation error uncertainty
+        obsUncDf = obsFileDf[["obsErrCovType", "obsErrCov"]]
 
         #####################################
         # Initialise observation variables
@@ -439,22 +396,20 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
         nRadObs = []
 
         # Extract radial positions from each obs. source
-        for obsName in obsToUseSplit:
+        for obsName in obsToAssim:
             radObs, nRadObs = bme.extractRadObs(obsName, radCoordDict, nObsDict, radObs, nRadObs)
 
             y, H, R = bme.makeObsForDA(
-                y, H, R, yCompDict,
-                obsName, radCoordDict, lonCoordDict,
-                obsUncDict, obsToBeTakenDict, nObsDict, vPrior[w, :, :], noOfLonPoints
+                y, H, R, obsCompDict, obsName, radCoordDict, lonCoordDict,
+                obsUncDf, obsToBeTakenDict, nObsDict, vPrior[w, :, :], noOfLonPoints
             )
 
         # Extract total number of observations
         noOfObsTotal = int(nRadObs[-1])
 
         # Print number of observations
-        print(f'len(yA) = {len(yA)}')
-        print(f'len(yB) = {len(yB)}')
-        print(f'len(yC) = {len(yC)}')
+        for obsName in obsCompDf.index:
+            print(f'len(y_{obsName}) = {len(obsCompDf.loc[obsName]["y"])}')
         print(f'Total number of observations: {noOfObsTotal}')
 
         #############################################################################
@@ -468,7 +423,7 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
         # Set the initial solar wind speed as equal to the prior solar wind speed
         vIter[0, 0, :] = np.copy(vPrior[w, 0, :])
         forwardStateIter[0, 0, :] = np.copy(vIter[0, 0, :])
-        print(f'y={y}')
+        #print(f'y={y}')
         # Run initial solar wind speed out into the heliosphere (from 30rS -> 215rS)
         # !Is this for loop necessary (vIter[0, :,:] = vPrior[w, :, :])?
         for rIndex in range(1, noOfRadPoints):
