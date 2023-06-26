@@ -510,6 +510,433 @@ def forwardRadModelNoLat(
     return velOut
 
 
+def makePriors(
+        fileVrEns, initMJDCR, currMJD, locRadDeg, nEns,
+        r, rH, deltaRrs, deltaPhi, alpha, solarRotFreq,
+        noOfRadPoints, noOfLonPoints, incMASMean=True
+):
+    # Localisation radius should be entered in degrees
+    # deltaPhi should be in radians
+
+    # Calculate deltaPhi in degrees for consistency with locRadDeg
+    deltaPhiDeg = 180.0 * deltaPhi / np.pi
+
+    #########################################
+    # Make B matrix and extract prior state and ensemble Mean
+    #########################################
+    # Generate prior mean and prior covariance matrix
+    unpertEnsMem, meanPrior, B = createUnpertAndBMatrix(
+        deltaPhiDeg, locRadDeg, noOfLonPoints, fileVrEns,
+        initMJDCR, currMJD, nEns
+    )
+
+    ##############################################
+    # Generate prior and MAS Mean state (if using)
+    ##############################################
+    # Initialise Prior state
+    forwardStatePrior = np.zeros((noOfRadPoints, noOfLonPoints))
+    forwardStatePrior[0, :] = unpertEnsMem.copy()
+
+    if incMASMean:
+        # Initialise MASMean state
+        forwardStateMASMean = np.zeros((noOfRadPoints, noOfLonPoints))
+        forwardStateMASMean[0, :] = np.copy(meanPrior[:])
+
+    ##########################################################################
+    # Run solar wind propagation model to get estimates of the solar wind throughout domain
+    ##########################################################################
+    for rIndex in range(1, noOfRadPoints):
+        # Run prior state forward
+        forwardStatePrior[rIndex, :] = forwardRadModelNoLat(
+            forwardStatePrior[rIndex - 1, :], forwardStatePrior[ 0, :],
+            r[rIndex - 1], rIndex - 1, deltaRrs, deltaPhi,
+            solarRotFreq, alpha, rH, noOfLonPoints
+        )
+
+        if incMASMean:
+            # Run MAS Mean forward
+            forwardStateMASMean[rIndex, :] = forwardRadModelNoLat(
+                forwardStateMASMean[rIndex - 1, :], forwardStateMASMean[0, :],
+                r[rIndex - 1], rIndex - 1, deltaRrs, deltaPhi, solarRotFreq,
+                alpha, rH, noOfLonPoints
+            )
+
+    if incMASMean:
+        return B, forwardStatePrior, forwardStateMASMean
+    else:
+        return B, forwardStatePrior
+
+
+def makeObs(
+    fileObs, fileMJD, currMJD, noOfLonPoints,
+    lowerCutOff=0, upperCutOff=5000
+):
+    #############################################################################
+    # Generate observations from data in file
+    #############################################################################
+
+    # Initialise variables
+    noOfObs = noOfLonPoints
+    obsToBeTaken = range(noOfLonPoints)
+
+    ###################################
+    # Read observation files
+    ###################################
+    y = readObsFileAvg(fileObs, fileMJD, currMJD, currMJD + 27)
+
+    # Reverse order to get obs in longitude order
+    y = np.copy(y[::-1])
+
+    # Extract all obs for plotting later
+    yPlot = np.copy(y)  # [::-1])
+
+    ################################################################################
+    # Filter out observations that are unrealistic/were not recorded
+    # (negative SW speeds and extremely large SW speeds (above cutoff specified by user))
+    #################################################################################
+    # Initialise temporary variables
+    noOfObsTemp = np.copy(noOfObs)
+    yTemp = list(np.copy(y))
+    obsToBeTakenTemp = list(np.copy(obsToBeTaken))
+
+    # Check if obs. is not NaN and within bounds of lowerCutOff and upperCutOff. If not, remove observation
+    for i in range(noOfObs):
+        # Check whether obs is outside bounds or NaN, if so remove observation
+        if (y[i] <= lowerCutOff) or (y[i] >= upperCutOff) or (np.isnan(y[i])):
+            yTemp.remove(y[i])
+
+            # Update plotting variable as NaN
+            yPlot[i] = np.nan
+
+            # Reduce number of obs. to be taken and remove longitude from obsToBeTaken
+            noOfObsTemp = noOfObsTemp - 1
+            obsToBeTakenTemp.remove(obsToBeTaken[i])
+
+    ######################################
+    # Update obs. vectors
+    ######################################
+    # Update no. of obs. at each satellite location
+    noOfObs = np.copy(noOfObsTemp)
+
+    # Update number of obs. to be taken
+    obsToBeTaken = np.copy(obsToBeTakenTemp)
+
+    # Update the observation vector
+    y = np.copy(yTemp)
+
+    return y, yPlot, obsToBeTaken, noOfObs
+
+
+def possibleObsCheck(obsToUse):
+    # Define a vector of possible observation strings
+    possibleObs = ['A', 'B', 'C']
+
+    if obsToUse not in possibleObs:
+        print(
+            'obsToUse must equal "A", "B", "C", "AB", "AC", "BC" or "ABC" '
+            '(or some permutation of these) without spaces'
+        )
+        print(
+            'where A corresponds to STEREO A, B corresponds to STEREO B and'
+            'C corresponds to ACE data being assimilated'
+        )
+        print('Check input to makeRcomp or update [33] accordingly.')
+        print('System will now exit...')
+        sys.exit()
+
+    return
+
+def makeRcomp(obsUncDict, radCoordDict, nObsDict, vPrior, obsToUse):
+    # Make R component of current observation
+
+    # Check obsToUse is viable option
+    possibleObsCheck(obsToUse)
+
+    # Calculate the uncertainty dependent on users choice in config file
+    if obsUncDict["BorC"] == 'B':
+        b1 = obsUncDict[obsToUse] * vPrior[radCoordDict[obsToUse], :].mean()
+        obsUncComp = b1 * np.ones(nObsDict[obsToUse])
+    elif obsUncDict["BorC"] == 'C':
+        obsUncComp = obsUncDict[obsToUse] * np.ones(nObsDict[obsToUse])
+    else:
+        print('First character should be a "B" or "C"')
+        print(('where B corresponds to a observation error standard deviation '
+               'proportional to mean prior solar wind at obs. radius'))
+        print('and C corresponds to a constant observation error standard deviation being used.')
+        print('Please update setupOfR accordingly. System will now exit...')
+        sys.exit()
+
+    # Assume observations are not correlated
+    Rcomp = np.diag(obsUncComp * obsUncComp)
+
+    return Rcomp
+
+
+def extractRadObs(obsToUse, radCoordDict, noOfObsDict, radObs, nRadObs):
+    # Check obsToUse is viable option
+    possibleObsCheck(obsToUse)
+
+    # Input number of and radius of STEREO-A observations
+    if len(nRadObs) == 0:
+        nRadObs.append(noOfObsDict[obsToUse])
+    else:
+        nRadObs.append(nRadObs[-1] + noOfObsDict[obsToUse])
+    radObs.append(radCoordDict[obsToUse])
+
+    return radObs, nRadObs
+
+
+def makeObsForDA(
+        y, H, R, yDict,
+        obsToUse, radCoordDict, lonCoordDict,
+        obsUncDict, obsToBeTakenDict, nObsDict, vPrior, noOfLonPoints
+):
+    #####################################################
+    # Perform initial checks
+    #####################################################
+    # Check obsToUse is viable option
+    possibleObsCheck(obsToUse)
+
+    # # Initialise obs.
+    # y = np.zeros(noOfObsTotal)
+    #
+    # # Obs. error covar. matrices for STERA, STERB and ACE
+    # RA = np.zeros((noOfObsA, noOfObsA))
+    # RB = np.zeros((noOfObsB, noOfObsB))
+    # RC = np.zeros((noOfObsC, noOfObsC))
+    #
+    # # Obs. error covar. for all obs. to be assimilated
+    # R = np.zeros((noOfObsTotal, noOfObsTotal))
+    #
+    # ###################################################
+    # # Generate observation operators
+    # ###################################################
+    # H = np.zeros((noOfObsTotal, noOfLonPoints))
+    # HA = bme.obsOp(noOfLonPoints, obsToBeTakenA, [sterALonCoord[w]])
+    # HB = bme.obsOp(noOfLonPoints, obsToBeTakenB, [sterBLonCoord[w]])
+    # HC = bme.obsOp(noOfLonPoints, obsToBeTakenC, [aceLonCoord[w]])
+    # Extract required observation
+    yComp = yDict[obsToUse]
+
+    #Generate required component of observation covariance matrix
+    Rcomp = makeRcomp(obsUncDict, radCoordDict, nObsDict, vPrior, obsToUse)
+
+    # Generate observation operator for this component
+    Hcomp = obsOp(noOfLonPoints, obsToBeTakenDict[obsToUse], [lonCoordDict[obsToUse]])
+
+    # # Add STEREO-A component into y, H and R
+    # if obsToUse == "A":
+    #
+    #
+    # # Add STEREO-B component into y, H and R
+    # if obsToUse == "B":
+    #     # Extract required observation
+    #     yComp = yDict["B"]
+    #
+    #     # Calculate the uncertainty dependent on users choice in config file
+    #     if obsUncDict["BorC"] == 'B':
+    #         b1 = obsUncDict["B"] * vPrior[w, radCoordDict["B"], :].mean()
+    #         obsUncComp = b1 * np.ones(nObsDict["B"])
+    #     elif obsUncDict["BorC"] == 'C':
+    #         obsUncComp = obsUncDict["B"] * np.ones(nObsDict["B"])
+    #     else:
+    #         print('First character should be a "B" or "C"')
+    #         print(('where B corresponds to a observation error standard deviation '
+    #                'proportional to mean prior solar wind at obs. radius'))
+    #         print('and C corresponds to a constant observation error standard deviation being used.')
+    #         print('Please update setupOfR accordingly. System will now exit...')
+    #         sys.exit()
+    #
+    #     # Assume observations are not correlated
+    #     Rcomp = np.diag(obsUncComp)
+    #
+    #     # Generate observation operator for this component
+    #     Hcomp = obsOp(noOfLonPoints, obsToBeTakenDict["B"], [lonCoordDict["B"]])
+    #
+    #
+    #     # Assume observations are not correlated
+    #     Rcomp = np.diag(obsUncComp)
+    #
+    #     # Generate observation operator for this component
+    #     Hcomp = obsOp(noOfLonPoints, obsToBeTakenDict["B"], [lonCoordDict["B"]])
+    #
+    # # Add ACE component into y, H and R
+    # if obsToUse == "C":
+    #     # Extract required observation
+    #     yComp = yDict["C"]
+    #
+    #     # Calculate the uncertainty dependent on users choice in config file
+    #     if obsUncDict["BorC"] == 'B':
+    #         b1 = obsUncDict["C"] * vPrior[w, radCoordDict["C"], :].mean()
+    #         obsUncComp = b1 * np.ones(nObsDict["C"])
+    #     elif obsUncDict["BorC"] == 'C':
+    #         obsUncComp = obsUncDict["C"] * np.ones(nObsDict["C"])
+    #     else:
+    #         print('First character should be a "B" or "C"')
+    #         print(('where B corresponds to a observation error standard deviation '
+    #                'proportional to mean prior solar wind at obs. radius'))
+    #         print('and C corresponds to a constant observation error standard deviation being used.')
+    #         print('Please update setupOfR accordingly. System will now exit...')
+    #         sys.exit()
+    #
+    #     # Assume observations are not correlated
+    #     Rcomp = np.diag(obsUncComp)
+    #
+    #     # Generate observation operator for this component
+    #     Hcomp = obsOp(noOfLonPoints, obsToBeTakenDict["C"], [lonCoordDict["C"]])
+
+    if len(y) == 0:
+        y = yComp
+        R = Rcomp
+        H = Hcomp
+    else:
+        y.append(yComp)
+
+        # Append Rcomp diagonally onto existing R assuming obs are independent)
+        # Calculate shape of R and Rcomp
+        shapeR = np.shape(R)
+        shapeRcomp = np.shape(Rcomp)
+
+        # Generate zero blocks of required shape for expanding R
+        Rz1 = np.zeros((shapeR[0], shapeRcomp[1]))
+        Rz2 = np.zeros((shapeRcomp[0], shapeR[1]))
+
+        R = np.bmat([
+            [R, Rz1],
+            [Rz2, Rcomp]
+        ])
+        R = np.array(R)
+
+        # Append Hcomp onto H
+        H.append(Hcomp, axis=0)
+    # ######################################################################
+    # # Make observation error covariance matrices (assumed diagonal,
+    # # i.e. all observations are uncorrelated)
+    # ######################################################################
+    #
+    # if str(splitLine[0]) == 'B':
+    #     # Generate observation errors proportional to mean of solar wind speed at obs. radius
+    #     obsUncA = (float(splitLine[1]) * vPrior[w, sterARadCoord[w], :].mean()) * np.ones(noOfObsA)
+    #     obsUncB = (float(splitLine[2]) * vPrior[w, sterBRadCoord[w], :].mean()) * np.ones(noOfObsB)
+    #     obsUncC = (float(splitLine[3]) * vPrior[w, earthRadCoord[w], :].mean()) * np.ones(noOfObsC)
+    # elif str(splitLine[0]) == 'C':
+    #     # Generate observation errors as a constant supplied by the user
+    #     obsUncA = float(splitLine[1]) * np.ones(noOfObsA)
+    #     obsUncB = float(splitLine[2]) * np.ones(noOfObsB)
+    #     obsUncC = float(splitLine[3]) * np.ones(noOfObsC)
+    # else:
+    #     print('First character should be a "B" or "C"')
+    #     print(('where B corresponds to a observation error standard deviation '
+    #            'proportional to mean prior solar wind at obs. radius'))
+    #     print('and C corresponds to a constant observation error standard deviation being used.')
+    #     print('Please update setupOfR accordingly. System will now exit...')
+    #     sys.exit()
+    #
+    # # Assume observations at different satellites are not correlated
+    # for i in range(noOfObsA):
+    #     RA[i, i] = obsUncA[i] * obsUncA[i]
+    # for i in range(noOfObsB):
+    #     RB[i, i] = obsUncB[i] * obsUncB[i]
+    # for i in range(noOfObsC):
+    #     RC[i, i] = obsUncC[i] * obsUncC[i]
+    #
+    # #########################################################################################
+    # # Update the generic DA variables depending upon what obs. the user wishes to assimilate
+    # #########################################################################################
+    # # Input appropriate parts into y, R and H to be used in DA
+    # if obsToUse == 'A':
+    #     # Make Observations
+    #     y[:noOfObsA] = np.copy(yA)
+    #
+    #     # Input appropriate components into full observation covariance matrix
+    #     R[:noOfObsA, :noOfObsA] = np.copy(RA)
+    #
+    #     # Input appropriate components into full observation covariance matrix
+    #     H[:noOfObsA, :] = np.copy(HA)
+    #
+    # elif obsToUse == 'B':
+    #     # Make Observations
+    #     y[:noOfObsB] = np.copy(yB)
+    #
+    #     # Input appropriate components into full observation covariance matrix
+    #     R[:noOfObsB, :noOfObsB] = np.copy(RB)
+    #
+    #     # Input appropriate components into full observation covariance matrix
+    #     H[:noOfObsB, :] = np.copy(HB)
+    # elif obsToUse == 'C':
+    #     # Make Observations
+    #     y[:noOfObsC] = np.copy(yC)
+    #
+    #     # Input appropriate components into full observation covariance matrix
+    #     R[:noOfObsC, :noOfObsC] = np.copy(RC)
+    #
+    #     # Input appropriate components into full observation covariance matrix
+    #     H[:noOfObsC, :] = np.copy(HC)
+    #
+    # elif obsToUse == 'AB':
+    #     # Make Observations
+    #     y[:noOfObsA] = np.copy(yA)
+    #     y[noOfObsA:(noOfObsA + noOfObsB)] = np.copy(yB)
+    #
+    #     # Input appropriate components into full observation covariance matrix
+    #     R[:noOfObsA, :noOfObsA] = np.copy(RA)
+    #     R[noOfObsA:(noOfObsA + noOfObsB), noOfObsA:(noOfObsA + noOfObsB)] = np.copy(RB)
+    #
+    #     # Input appropriate components into full observation covariance matrix
+    #     H[:noOfObsA, :] = np.copy(HA)
+    #     H[noOfObsA:(noOfObsA + noOfObsB), :] = np.copy(HB)
+    # elif obsToUse == 'AC':
+    #     # Make Observations
+    #     y[:noOfObsA] = np.copy(yA)
+    #     y[noOfObsA:] = np.copy(yC)
+    #
+    #     # Input appropriate components into full observation covariance matrix
+    #     R[:noOfObsA, :noOfObsA] = np.copy(RA)
+    #     R[noOfObsA:, noOfObsA:] = np.copy(RC)
+    #
+    #     # Input appropriate components into full observation covariance matrix
+    #     H[:noOfObsA, :] = np.copy(HA)
+    #     H[noOfObsA:, :] = np.copy(HC)
+    # elif obsToUse == 'BC':
+    #     # Make Observations
+    #     y[:noOfObsB] = np.copy(yB)
+    #     y[noOfObsB:] = np.copy(yC)
+    #
+    #     # Input appropriate components into full observation covariance matrix
+    #     R[:noOfObsB, :noOfObsB] = np.copy(RB)
+    #     R[noOfObsB:, noOfObsB:] = np.copy(RC)
+    #
+    #     # Input appropriate components into full observation covariance matrix
+    #     H[:noOfObsB, :] = np.copy(HB)
+    #     H[noOfObsB:, :] = np.copy(HC)
+    # elif obsToUse == 'ABC':
+    #     # Make Observations
+    #     y[:noOfObsA] = np.copy(yA)
+    #     y[noOfObsA:(noOfObsA + noOfObsB)] = np.copy(yB)
+    #     y[(noOfObsA + noOfObsB):] = np.copy(yC)
+    #
+    #     # Input appropriate components into full observation covariance matrix
+    #     R[:noOfObsA, :noOfObsA] = np.copy(RA)
+    #     R[noOfObsA:(noOfObsA + noOfObsB), noOfObsA:(noOfObsA + noOfObsB)] = np.copy(RB)
+    #     R[(noOfObsA + noOfObsB):, (noOfObsA + noOfObsB):] = np.copy(RC)
+    #
+    #     # Input appropriate components into full observation covariance matrix
+    #     H[:noOfObsA, :] = np.copy(HA)
+    #     H[noOfObsA:(noOfObsA + noOfObsB), :] = np.copy(HB)
+    #     H[(noOfObsA + noOfObsB):, :] = np.copy(HC)
+    # else:
+    #     print(
+    #         'obsToUse must equal "A", "B", "C", "AB", "AC", "BC" or "ABC"'
+    #         '(or some permutation of these) without spaces,\n'
+    #         'where A corresponds to STEREO A, B corresponds to STEREO B and C'
+    #         'corresponds to ACE data being assimilated\n'
+    #         'Please update obsToUse accordingly. System will now exit...'
+    #     )
+    #     sys.exit()
+
+    return y, H, R
+
+
 def TLMRadNoLat(
         dv, v, r, rIndex, deltaR, deltaPhi, solarRotFreq, alpha, rH, noOfLonPoints
 ):

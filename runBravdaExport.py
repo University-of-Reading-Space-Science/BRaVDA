@@ -1,5 +1,6 @@
 # Import necessary packages
 import numpy as np
+import pandas as pd
 import time
 from scipy import optimize
 import os
@@ -40,7 +41,21 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
     earthLocFile = os.path.join(currentDir, configLines[11].strip())
     fileObsA = os.path.join(currentDir, configLines[13].strip())
     fileObsB = os.path.join(currentDir, configLines[15].strip())
-    fileObsACE = os.path.join(currentDir, configLines[17].strip())
+    fileObsC = os.path.join(currentDir, configLines[17].strip())
+
+    # Make dictionary holding obs files
+    fileObs = {
+        "A": fileObsA,
+        "B": fileObsB,
+        "C": fileObsC
+    }
+
+    obsLocFiles = {
+        "A": steraLocFile,
+        "B": sterbLocFile,
+        "C": earthLocFile,
+        "earth": earthLocFile
+    }
 
     #########################################################
     # Read in file containing required inputs for the HUX solar wind
@@ -272,7 +287,7 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
     # Check if mid-points file exists for these windows, if not, make it
     ############################################################################
     mjdCRFile = os.path.join(
-        outputDir, 'MJDFiles', f'MJDMidPoints_{int(currMJD[0])}_{int(currMJD[-1])}.dat'
+        outputDir, 'MJDfiles', f'MJDMidPoints_{int(currMJD[0])}_{int(currMJD[-1])}.dat'
     )
     if not os.path.isfile(mjdCRFile):
         with open(mjdCRFile, 'w') as mjdMidFile:
@@ -283,22 +298,33 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
     # Read in mid-points and locations, then extract the radii/longitudes of
     # STEREO A and B that are relevant for this run
     ##################################################################################
-    sterARadAU, sterARadRs, sterARadKm, sterARadCoord, sterALon, sterALonCoord = bme.getObsPos(
-        steraLocFile, earthLocFile, mjdCRFile, noOfWindows,
-        rS, innerRadRs, deltaRrs, deltaPhiDeg
-    )
-    sterBRadAU, sterBRadRs, sterBRadKm, sterBRadCoord, sterBLon, sterBLonCoord = bme.getObsPos(
-        sterbLocFile, earthLocFile, mjdCRFile, noOfWindows,
-        rS, innerRadRs, deltaRrs, deltaPhiDeg
-    )
-    aceRadAU, aceRadRs, aceRadKm, aceRadCoord, aceLon, aceLonCoord = bme.getObsPos(
-        earthLocFile, earthLocFile, mjdCRFile, noOfWindows,
-        rS, innerRadRs, deltaRrs, deltaPhiDeg
-    )
-    earthRadAU, earthRadRs, earthRadKm, earthRadCoord, earthLon, earthLonCoord = bme.getObsPos(
-        earthLocFile, earthLocFile, mjdCRFile, noOfWindows,
-        rS, innerRadRs, deltaRrs, deltaPhiDeg
-    )
+    # sterARadAU, sterARadRs, sterARadKm, sterARadCoord, sterALon, sterALonCoord = bme.getObsPos(
+    #     obsLocFiles["A"], obsLocFiles["earth"], mjdCRFile, noOfWindows,
+    #     rS, innerRadRs, deltaRrs, deltaPhiDeg
+    # )
+    # sterBRadAU, sterBRadRs, sterBRadKm, sterBRadCoord, sterBLon, sterBLonCoord = bme.getObsPos(
+    #     obsLocFiles["B"], obsLocFiles["earth"], mjdCRFile, noOfWindows,
+    #     rS, innerRadRs, deltaRrs, deltaPhiDeg
+    # )
+    # aceRadAU, aceRadRs, aceRadKm, aceRadCoord, aceLon, aceLonCoord = bme.getObsPos(
+    #     obsLocFiles["C"], obsLocFiles["earth"], mjdCRFile, noOfWindows,
+    #     rS, innerRadRs, deltaRrs, deltaPhiDeg
+    # )
+    # earthRadAU, earthRadRs, earthRadKm, earthRadCoord, earthLon, earthLonCoord = bme.getObsPos(
+    #     obsLocFiles["earth"], obsLocFiles["earth"], mjdCRFile, noOfWindows,
+    #     rS, innerRadRs, deltaRrs, deltaPhiDeg
+    # )
+
+    obsPosDf = pd.DataFrame(columns=["radAU", "radRs", "radKm", "radCoord", "lon", "lonCoord"])
+    for obsName in ["A", "B", "C", "earth"]:
+        radAU, radRs, radKm, radCoord, lon, lonCoord = bme.getObsPos(
+            obsLocFiles[obsName], obsLocFiles["earth"], mjdCRFile, noOfWindows,
+            rS, innerRadRs, deltaRrs, deltaPhiDeg
+        )
+        obsPosDf.loc[obsName] = [radAU, radRs, radKm, radCoord, lon, lonCoord]
+    print(obsPosDf)
+
+    #sys.exit()
 
     # Output time it has taken to get to start of windows loop
     print('\n---------------------------------------------------------------------------------')
@@ -307,9 +333,8 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
     print('---------------------------------------------------------------------------------\n')
 
     ###############################################################################
-    # Read in file names of observation files
-    ###############################################################################
     # Open output file to preserve printed output
+    #################################################
     outFileName = os.path.join(outputDir, 'output.txt')
     outFile = open(outFileName, 'w')
 
@@ -319,310 +344,66 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
         print(f'Window No.: {w}/{noOfWindows}')
         print(f'Carr. Rot.: {currCR[w]}')
 
-        #########################################
-        # Make mean and B matrix
-        #########################################
-        # Generate prior mean and prior covariance matrix
-        unpertEnsMem, meanPrior, B = bme.createUnpertAndBMatrix(
-            deltaPhiDeg, locRad, noOfLonPoints, filesVrEns[w],
-            initMJDCR[w], currMJD[w], nMASens
+        B, forwardStatePrior, forwardStateMASMean = bme.makePriors(
+            filesVrEns[w], initMJDCR[w], currMJD[w], locRad, nMASens,
+            r, rH, deltaRrs, deltaPhi, alpha, solarRotFreq,
+            noOfRadPoints, noOfLonPoints, incMASMean=True
         )
 
-        ################################################
-        # Initialise ensemble for this CR
-        ################################################
-        # Initialise Prior and MAS ensemble vectors
-        forwardStatePrior = np.zeros((noOfRadPoints, noOfLonPoints))
-        forwardStateMASMean = np.zeros((noOfRadPoints, noOfLonPoints))
-
-        ##############################################
-        # Generate prior and MAS Mean state
-        ##############################################
-        # MAS Mean is just mean of distribution
-        forwardStateMASMean[0, :] = np.copy(meanPrior[:])
-        forwardStatePrior[0, :] = unpertEnsMem.copy()
-
-        # Reshape for use in forward model
-        vPrior[w, 0, :] = forwardStatePrior[0, :].copy()
-        vMASMean[w, 0, :] = forwardStateMASMean[0, :].copy()
-
-        ##########################################################################
-        # Run solar wind propagation model to get estimates of the solar wind throughout domain
-        ##########################################################################
-        for rIndex in range(1, noOfRadPoints):
-            # Run prior state forward
-            forwardStatePrior[rIndex, :] = bme.forwardRadModelNoLat(
-                vPrior[w, rIndex - 1, :], vPrior[w, 0, :],
-                r[rIndex - 1], rIndex - 1, deltaRrs, deltaPhi,
-                solarRotFreq, alpha, rH, noOfLonPoints
-            )
-            vPrior[w, rIndex, :] = np.copy(forwardStatePrior[rIndex, :])
-
-            # Run MAS Mean forward
-            forwardStateMASMean[rIndex, :] = bme.forwardRadModelNoLat(
-                vMASMean[w, rIndex - 1, :], vMASMean[w, 0, :],
-                r[rIndex - 1], rIndex - 1, deltaRrs, deltaPhi, solarRotFreq,
-                alpha, rH, noOfLonPoints
-            )
-            vMASMean[w, rIndex, :] = np.copy(forwardStateMASMean[rIndex, :])
+        vPrior[w, :, :] = np.copy(forwardStatePrior)
+        vMASMean[w, :, :] = np.copy(forwardStateMASMean)
 
         #############################################################################
         # Generate all observations
         #############################################################################
-        # Initialise variables
-        noOfObsA = noOfLonPoints
-        noOfObsB = noOfLonPoints
-        noOfObsC = noOfLonPoints
+        yA, yAPlot, obsToBeTakenA, noOfObsA = bme.makeObs(
+            fileObsA, fileMJD[w], currMJD[w], noOfLonPoints,
+            lowerCutOff=0, upperCutOff=5000
+        )
+        yB, yBPlot, obsToBeTakenB, noOfObsB = bme.makeObs(
+            fileObsB, fileMJD[w], currMJD[w], noOfLonPoints,
+            lowerCutOff=0, upperCutOff=5000
+        )
+        yC, yCPlot, obsToBeTakenC, noOfObsC = bme.makeObs(
+            fileObsC, fileMJD[w], currMJD[w], noOfLonPoints,
+            lowerCutOff=0, upperCutOff=5000
+        )
 
-        obsToBeTakenA = range(noOfLonPoints)
-        obsToBeTakenB = range(noOfLonPoints)
-        obsToBeTakenC = range(noOfLonPoints)
+        # Place all obs into a dictionary
+        yCompDict = {
+            "A": yA,
+            "B": yB,
+            "C": yC
+        }
 
-        obsNotTakenA = []
-        obsNotTakenB = []
-        obsNotTakenC = []
+        ##########################################################
+        # Extract radial positions and number of observations
+        ##########################################################
+        obsToUseSplit = [x for x in obsToUse]
 
-        ###################################
-        # Read observation files
-        ###################################
-        
-        yA = bme.readObsFileAvg(fileObsA, fileMJD[w], currMJD[w], currMJD[w] + 27)
-        yB = bme.readObsFileAvg(fileObsB, fileMJD[w], currMJD[w], currMJD[w] + 27)
-        yC = bme.readObsFileAvg(fileObsACE, fileMJD[w], currMJD[w], currMJD[w] + 27)
+        #Set up dictionaries containing the different obs. radial values
+        nObsDict = {
+            "A": noOfObsA,
+            "B": noOfObsB,
+            "C": noOfObsC
+        }
+        radCoordDict = {
+            "A": obsPosDf.loc["A"]["radCoord"][w],
+            "B": obsPosDf.loc["B"]["radCoord"][w],
+            "C": obsPosDf.loc["C"]["radCoord"][w]
+        }
 
-        # Reverse order to get obs in longitude order
-        yA = np.copy(yA[::-1])
-        yB = np.copy(yB[::-1])
-        yC = np.copy(yC[::-1])
+        lonCoordDict = {
+            "A": obsPosDf.loc["A"]["lonCoord"][w],
+            "B": obsPosDf.loc["B"]["lonCoord"][w],
+            "C": obsPosDf.loc["C"]["lonCoord"][w]
+        }
+        obsToBeTakenDict = {
+            "A": obsToBeTakenA,
+            "B": obsToBeTakenB,
+            "C": obsToBeTakenC
+        }
 
-        # Extract all obs for plotting later
-        yAPlot = np.copy(yA)  # [::-1])
-        yBPlot = np.copy(yB)  # [::-1])
-        yCPlot = np.copy(yC)  # [::-1])
-
-        ################################################################################
-        # Filter out observations that are unrealistic/were not recorded
-        # (negative SW speeds and extremely large SW speeds)
-        #################################################################################
-        #############
-        # STEREO A
-        #############
-        # Initialise temporary variables
-        noOfObsATemp = np.copy(noOfObsA)
-        yATemp = list(np.copy(yA))
-        obsToBeTakenATemp = list(np.copy(obsToBeTakenA))
-
-        # Check if obs. speed negative or greater than 5000km/s remove observation
-        for i in range(noOfObsA):
-            if (abs(yA[i]) > 5000) or (yA[i] < 0):
-                # Remove observation from list
-                yATemp.remove(yA[i])
-
-                # Update plotting variable as NaN
-                yAPlot[i] = np.nan
-
-                # Reduce number of obs. to be taken and record which
-                # longitude obs is removed from (and which obs. are to be taken)
-                noOfObsATemp = noOfObsATemp - 1
-                obsToBeTakenATemp.remove(obsToBeTakenA[i])
-                obsNotTakenA.append(obsToBeTakenA[i])
-
-        ################
-        # STEREO B
-        ################
-        # Initialise temporary variables
-        noOfObsBTemp = np.copy(noOfObsB)
-        yBTemp = list(np.copy(yB))
-        obsToBeTakenBTemp = list(np.copy(obsToBeTakenB))
-
-        # Check if obs. speed negative or greater than 2000km/s remove observation
-        for i in range(noOfObsB):
-            if (abs(yB[i]) > 5000) or (yB[i] < 0):
-                # Remove observation from list
-                yBTemp.remove(yB[i])
-
-                # Update plotting variable as NaN
-                yBPlot[i] = np.nan
-
-                # Reduce number of obs. to be taken and record which
-                # longitude obs is removed from (and which obs. are to be taken)
-                noOfObsBTemp = noOfObsBTemp - 1
-                obsToBeTakenBTemp.remove(obsToBeTakenB[i])
-                obsNotTakenB.append(obsToBeTakenB[i])
-
-        ###############
-        # ACE
-        ###############
-        # Initialise temporary variables
-        noOfObsCTemp = np.copy(noOfObsC)
-        yCTemp = list(np.copy(yC[:]))
-        obsToBeTakenCTemp = list(np.copy(obsToBeTakenC))
-
-        # Check if obs. speed negative or greater than 2000km/s remove observation
-        for i in range(noOfObsC):
-            if (abs(yC[i]) > 5000) or (yC[i] < 0):
-                # Remove observation from list
-                yCTemp.remove(yC[i])
-
-                # Update plotting variable as NaN
-                yCPlot[i] = np.nan
-
-                # Reduce number of obs. to be taken and record which
-                # longitude obs is removed from (and which obs. are to be taken)
-                noOfObsCTemp = noOfObsCTemp - 1
-                obsToBeTakenCTemp.remove(obsToBeTakenC[i])
-                obsNotTakenC.append(obsToBeTakenC[i])
-
-        ######################################
-        # Update obs. vectors
-        ######################################
-        # Update all observations vector
-        yAllA[w * noOfLonPoints:(w + 1) * noOfLonPoints] = np.copy(yAPlot)
-        yAllB[w * noOfLonPoints:(w + 1) * noOfLonPoints] = np.copy(yBPlot)
-        yAllC[w * noOfLonPoints:(w + 1) * noOfLonPoints] = np.copy(yCPlot)
-
-        # Update no. of obs. at each satellite location
-        noOfObsA = np.copy(noOfObsATemp)
-        noOfObsB = np.copy(noOfObsBTemp)
-        noOfObsC = np.copy(noOfObsCTemp)
-
-        # Update number of obs. to be taken
-        obsToBeTakenA = np.copy(obsToBeTakenATemp)
-        obsToBeTakenB = np.copy(obsToBeTakenBTemp)
-        obsToBeTakenC = np.copy(obsToBeTakenCTemp)
-
-        # Update the observation vector
-        yA = np.copy(yATemp)
-        yB = np.copy(yBTemp)
-        yC = np.copy(yCTemp)
-
-        #########################################################
-        # Depending on what observations the user has specified to be assimilated
-        # Update variables according to the radius at which the STEREO A/B satellites are
-        # and the number of observations that occur at each radius
-        #########################################################
-        if obsToUse == 'A':
-            radObs = np.zeros(1)
-            nRadObs = np.zeros((len(radObs)))
-
-            # Input radius of observations
-            radObs[0] = sterARadCoord[w]
-
-            # Input number of observations at each radius
-            nRadObs[0] = noOfObsA
-
-        elif obsToUse == 'B':
-            radObs = np.zeros(1)
-            nRadObs = np.zeros((len(radObs)))
-
-            # Input radius of observations
-            radObs[0] = sterBRadCoord[w]
-
-            # Input number of observations at each radius
-            nRadObs[0] = noOfObsB
-
-        elif obsToUse == 'C':
-            radObs = np.zeros(1)
-            nRadObs = np.zeros((len(radObs)))
-
-            # Input radius of observations
-            radObs[0] = earthRadCoord[w]
-
-            # Input number of observations at each radius
-            nRadObs[0] = noOfObsC
-
-        elif obsToUse == 'AB':
-            radObs = np.zeros(2)
-            nRadObs = np.zeros((len(radObs)))
-
-            # Input radius of observations
-            radObs[0] = sterARadCoord[w]
-            radObs[1] = sterBRadCoord[w]
-
-            # Input number of observations at each radius
-            nRadObs[0] = noOfObsB
-            nRadObs[1] = noOfObsA + noOfObsB
-
-        elif obsToUse == 'AC':
-            radObs = np.zeros(2)
-            nRadObs = np.zeros((len(radObs)))
-
-            # Input radius of observations
-            radObs[0] = sterARadCoord[w]
-            radObs[1] = earthRadCoord[w]
-
-            # Input number of observations at each radius
-            nRadObs[0] = noOfObsA
-            nRadObs[1] = noOfObsA + noOfObsC
-        elif obsToUse == 'BC':
-            radObs = np.zeros(2)
-            nRadObs = np.zeros((len(radObs)))
-
-            # Input radius of observations
-            radObs[0] = sterBRadCoord[w]
-            radObs[1] = earthRadCoord[w]
-
-            # Input number of observations at each radius
-            nRadObs[0] = noOfObsB
-            nRadObs[1] = noOfObsB + noOfObsC
-        elif obsToUse == 'ABC':
-            radObs = np.zeros(3)
-            nRadObs = np.zeros((len(radObs)))
-
-            # Input radius of observations
-            radObs[0] = sterARadCoord[w]
-            radObs[1] = sterBRadCoord[w]
-            radObs[2] = earthRadCoord[w]
-
-            # Input number of observations at each radius
-            nRadObs[0] = noOfObsA
-            nRadObs[1] = noOfObsA + noOfObsB
-            nRadObs[2] = noOfObsA + noOfObsB + noOfObsC
-        else:
-            print(
-                'obsToUse must equal "A", "B", "C", "AB", "AC", "BC" or "ABC" '
-                '(or some permutation of these) without spaces'
-            )
-            print(
-                'where A corresponds to STEREO A, B corresponds to STEREO B and'
-                'C corresponds to ACE data being assimilated'
-            )
-            print('Please update [33] accordingly. System will now exit...')
-            sys.exit()
-
-        noOfObsTotal = int(nRadObs[-1])
-
-        # Print number of observations
-        print(f'len(yA) = {len(yA)}')
-        print(f'len(yB) = {len(yB)}')
-        print(f'len(yC) = {len(yC)}')
-        print(f'Total number of observations: {noOfObsTotal}')
-
-        #####################################
-        # Initialise observation variables
-        #####################################
-        # Initialise obs.
-        y = np.zeros(noOfObsTotal)
-
-        # Obs. error covar. matrices for STERA, STERB and ACE
-        RA = np.zeros((noOfObsA, noOfObsA))
-        RB = np.zeros((noOfObsB, noOfObsB))
-        RC = np.zeros((noOfObsC, noOfObsC))
-
-        R = np.zeros((noOfObsTotal, noOfObsTotal))  # Obs. error covar. for all obs. to be assimilated
-
-        ###################################################
-        # Generate observation operators
-        ###################################################
-        H = np.zeros((noOfObsTotal, noOfLonPoints))
-        HA = bme.obsOp(noOfLonPoints, obsToBeTakenA, [sterALonCoord[w]])
-        HB = bme.obsOp(noOfLonPoints, obsToBeTakenB, [sterBLonCoord[w]])
-        HC = bme.obsOp(noOfLonPoints, obsToBeTakenC, [aceLonCoord[w]])
-
-        ######################################################################
-        # Make observation error covariance matrices (assumed diagonal,
-        # i.e. all observations are uncorrelated)
-        ######################################################################
         # Read in whether a constant obs. covariance matrix is required or if
         # the uncertainty should be a percentage of the prior solar wind speed at the observation radius
         splitLine = setupOfR.split(' ')
@@ -638,125 +419,43 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
             print('System will now exit')
             sys.exit()
 
-        if str(splitLine[0]) == 'B':
-            # Generate observation errors proportional to mean of solar wind speed at obs. radius
-            obsUncA = (float(splitLine[1]) * vPrior[w, sterARadCoord[w], :].mean()) * np.ones(noOfObsA)
-            obsUncB = (float(splitLine[2]) * vPrior[w, sterBRadCoord[w], :].mean()) * np.ones(noOfObsB)
-            obsUncC = (float(splitLine[3]) * vPrior[w, earthRadCoord[w], :].mean()) * np.ones(noOfObsC)
-        elif str(splitLine[0]) == 'C':
-            # Generate observation errors as a constant supplied by the user
-            obsUncA = float(splitLine[1]) * np.ones(noOfObsA)
-            obsUncB = float(splitLine[2]) * np.ones(noOfObsB)
-            obsUncC = float(splitLine[3]) * np.ones(noOfObsC)
-        else:
-            print('First character should be a "B" or "C"')
-            print(('where B corresponds to a observation error standard deviation '
-                   'proportional to mean prior solar wind at obs. radius'))
-            print('and C corresponds to a constant observation error standard deviation being used.')
-            print('Please update setupOfR accordingly. System will now exit...')
-            sys.exit()
+        obsUncDict = {
+            "BorC": splitLine[0],
+            "A": float(splitLine[1]),
+            "B": float(splitLine[2]),
+            "C": float(splitLine[3])
+        }
 
-        # Assume observations at different satellites are not correlated
-        for i in range(noOfObsA):
-            RA[i, i] = obsUncA[i] * obsUncA[i]
-        for i in range(noOfObsB):
-            RB[i, i] = obsUncB[i] * obsUncB[i]
-        for i in range(noOfObsC):
-            RC[i, i] = obsUncC[i] * obsUncC[i]
+        #####################################
+        # Initialise observation variables
+        #####################################
+        # Initialise obs.
+        y = []
+        H = [] # Obs. operator
+        R = []  # Obs. error covar. for all obs. to be assimilated
 
-        #########################################################################################
-        # Update the generic DA variables depending upon what obs. the user wishes to assimilate
-        #########################################################################################
-        # Input appropriate parts into y, R and H to be used in DA
-        if obsToUse == 'A':
-            # Make Observations
-            y[:noOfObsA] = np.copy(yA)
+        #Initialise radObs and nRadObs
+        radObs = []
+        nRadObs = []
 
-            # Input appropriate components into full observation covariance matrix
-            R[:noOfObsA, :noOfObsA] = np.copy(RA)
+        # Extract radial positions from each obs. source
+        for obsName in obsToUseSplit:
+            radObs, nRadObs = bme.extractRadObs(obsName, radCoordDict, nObsDict, radObs, nRadObs)
 
-            # Input appropriate components into full observation covariance matrix
-            H[:noOfObsA, :] = np.copy(HA)
-
-        elif obsToUse == 'B':
-            # Make Observations
-            y[:noOfObsB] = np.copy(yB)
-
-            # Input appropriate components into full observation covariance matrix
-            R[:noOfObsB, :noOfObsB] = np.copy(RB)
-
-            # Input appropriate components into full observation covariance matrix
-            H[:noOfObsB, :] = np.copy(HB)
-        elif obsToUse == 'C':
-            # Make Observations
-            y[:noOfObsC] = np.copy(yC)
-
-            # Input appropriate components into full observation covariance matrix
-            R[:noOfObsC, :noOfObsC] = np.copy(RC)
-
-            # Input appropriate components into full observation covariance matrix
-            H[:noOfObsC, :] = np.copy(HC)
-
-        elif obsToUse == 'AB':
-            # Make Observations
-            y[:noOfObsA] = np.copy(yA)
-            y[noOfObsA:(noOfObsA + noOfObsB)] = np.copy(yB)
-
-            # Input appropriate components into full observation covariance matrix
-            R[:noOfObsA, :noOfObsA] = np.copy(RA)
-            R[noOfObsA:(noOfObsA + noOfObsB), noOfObsA:(noOfObsA + noOfObsB)] = np.copy(RB)
-
-            # Input appropriate components into full observation covariance matrix
-            H[:noOfObsA, :] = np.copy(HA)
-            H[noOfObsA:(noOfObsA + noOfObsB), :] = np.copy(HB)
-        elif obsToUse == 'AC':
-            # Make Observations
-            y[:noOfObsA] = np.copy(yA)
-            y[noOfObsA:] = np.copy(yC)
-
-            # Input appropriate components into full observation covariance matrix
-            R[:noOfObsA, :noOfObsA] = np.copy(RA)
-            R[noOfObsA:, noOfObsA:] = np.copy(RC)
-
-            # Input appropriate components into full observation covariance matrix
-            H[:noOfObsA, :] = np.copy(HA)
-            H[noOfObsA:, :] = np.copy(HC)
-        elif obsToUse == 'BC':
-            # Make Observations
-            y[:noOfObsB] = np.copy(yB)
-            y[noOfObsB:] = np.copy(yC)
-
-            # Input appropriate components into full observation covariance matrix
-            R[:noOfObsB, :noOfObsB] = np.copy(RB)
-            R[noOfObsB:, noOfObsB:] = np.copy(RC)
-
-            # Input appropriate components into full observation covariance matrix
-            H[:noOfObsB, :] = np.copy(HB)
-            H[noOfObsB:, :] = np.copy(HC)
-        elif obsToUse == 'ABC':
-            # Make Observations
-            y[:noOfObsA] = np.copy(yA)
-            y[noOfObsA:(noOfObsA + noOfObsB)] = np.copy(yB)
-            y[(noOfObsA + noOfObsB):] = np.copy(yC)
-
-            # Input appropriate components into full observation covariance matrix
-            R[:noOfObsA, :noOfObsA] = np.copy(RA)
-            R[noOfObsA:(noOfObsA + noOfObsB), noOfObsA:(noOfObsA + noOfObsB)] = np.copy(RB)
-            R[(noOfObsA + noOfObsB):, (noOfObsA + noOfObsB):] = np.copy(RC)
-
-            # Input appropriate components into full observation covariance matrix
-            H[:noOfObsA, :] = np.copy(HA)
-            H[noOfObsA:(noOfObsA + noOfObsB), :] = np.copy(HB)
-            H[(noOfObsA + noOfObsB):, :] = np.copy(HC)
-        else:
-            print(
-                'obsToUse must equal "A", "B", "C", "AB", "AC", "BC" or "ABC"'
-                '(or some permutation of these) without spaces,\n'
-                'where A corresponds to STEREO A, B corresponds to STEREO B and C'
-                'corresponds to ACE data being assimilated\n'
-                'Please update obsToUse accordingly. System will now exit...'
+            y, H, R = bme.makeObsForDA(
+                y, H, R, yCompDict,
+                obsName, radCoordDict, lonCoordDict,
+                obsUncDict, obsToBeTakenDict, nObsDict, vPrior[w, :, :], noOfLonPoints
             )
-            sys.exit()
+
+        # Extract total number of observations
+        noOfObsTotal = int(nRadObs[-1])
+
+        # Print number of observations
+        print(f'len(yA) = {len(yA)}')
+        print(f'len(yB) = {len(yB)}')
+        print(f'len(yC) = {len(yC)}')
+        print(f'Total number of observations: {noOfObsTotal}')
 
         #############################################################################
         # Data Assimilation
@@ -855,19 +554,19 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
         # as ascending in time (-Carr. Rot.)
         ######################################################
         # Extract velocities at STERA radii (and reorder)
-        vPlotTempA[0, :] = np.copy(vMASMean[w, sterARadCoord[w], ::-1])
-        vPlotTempA[1, :] = np.copy(vIter[0, sterARadCoord[w], ::-1])
-        vPlotTempA[2, :] = np.copy(vIter[-1, sterARadCoord[w], ::-1])
+        vPlotTempA[0, :] = np.copy(vMASMean[w, obsPosDf.loc["A"]["radCoord"][w], ::-1])
+        vPlotTempA[1, :] = np.copy(vIter[0, obsPosDf.loc["A"]["radCoord"][w], ::-1])
+        vPlotTempA[2, :] = np.copy(vIter[-1, obsPosDf.loc["A"]["radCoord"][w], ::-1])
 
         # Extract velocities at STERA radii (and reorder)
-        vPlotTempB[0, :] = np.copy(vMASMean[w, sterBRadCoord[w], ::-1])
-        vPlotTempB[1, :] = np.copy(vIter[0, sterBRadCoord[w], ::-1])
-        vPlotTempB[2, :] = np.copy(vIter[-1, sterBRadCoord[w], ::-1])
+        vPlotTempB[0, :] = np.copy(vMASMean[w, obsPosDf.loc["B"]["radCoord"][w], ::-1])
+        vPlotTempB[1, :] = np.copy(vIter[0, obsPosDf.loc["B"]["radCoord"][w], ::-1])
+        vPlotTempB[2, :] = np.copy(vIter[-1, obsPosDf.loc["B"]["radCoord"][w], ::-1])
 
         # Extract velocities at ACE radius (and reorder)
-        vPlotTempC[0, :] = np.copy(vMASMean[w, aceRadCoord[w], ::-1])
-        vPlotTempC[1, :] = np.copy(vIter[0, aceRadCoord[w], ::-1])
-        vPlotTempC[2, :] = np.copy(vIter[-1, aceRadCoord[w], ::-1])
+        vPlotTempC[0, :] = np.copy(vMASMean[w, obsPosDf.loc["C"]["radCoord"][w], ::-1])
+        vPlotTempC[1, :] = np.copy(vIter[0, obsPosDf.loc["C"]["radCoord"][w], ::-1])
+        vPlotTempC[2, :] = np.copy(vIter[-1, obsPosDf.loc["C"]["radCoord"][w], ::-1])
 
         ######################################################
         # Copy observation data (and reorder)
@@ -878,19 +577,19 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
 
         for i in range(noOfLonPoints):
             # Extract relevant solar wind velocities at STEREO A location
-            sterATrans = int(np.mod(i + sterALonCoord[w], noOfLonPoints))
+            sterATrans = int(np.mod(i + obsPosDf.loc["A"]["lonCoord"][w], noOfLonPoints))
             vSterAPlot[1, sterATrans] = np.copy(vPlotTempA[0, i])
             vSterAPlot[2, sterATrans] = np.copy(vPlotTempA[1, i])
             vSterAPlot[3, sterATrans] = np.copy(vPlotTempA[2, i])
 
             # Extract relevant solar wind velocities at STEREO B location
-            sterBTrans = int(np.mod(i + sterBLonCoord[w], noOfLonPoints))
+            sterBTrans = int(np.mod(i + obsPosDf.loc["B"]["lonCoord"][w], noOfLonPoints))
             vSterBPlot[1, sterBTrans] = np.copy(vPlotTempB[0, i])
             vSterBPlot[2, sterBTrans] = np.copy(vPlotTempB[1, i])
             vSterBPlot[3, sterBTrans] = np.copy(vPlotTempB[2, i])
 
             # Extract relevant solar wind velocities at ACE location
-            aceTrans = int(np.mod(i + aceLonCoord[w], noOfLonPoints))
+            aceTrans = int(np.mod(i + obsPosDf.loc["C"]["lonCoord"][w], noOfLonPoints))
             vACEPlot[1, aceTrans] = np.copy(vPlotTempC[0, i])
             vACEPlot[2, aceTrans] = np.copy(vPlotTempC[1, i])
             vACEPlot[3, aceTrans] = np.copy(vPlotTempC[2, i])
@@ -917,7 +616,7 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
         # Plot solar wind speeds at STEREO A, STEREO B and ACE
         ##############################################################################
         if makePlots:
-            swFileDir = os.path.join(outputDir, 'Plots', 'swOver27d')
+            swFileDir = os.path.join(outputDir, 'plots', 'swOver27d')
             fig1, ax1 = bme.plotSWspeed(
                 deltaPhiDeg, vSterAPlot, swFileDir, 'STA', currMJD[w], fontSize=18, lWid=2.0
             )
