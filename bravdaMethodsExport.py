@@ -703,7 +703,7 @@ def makeObsForDA(
         R = Rcomp
         H = Hcomp
     else:
-        y.append(yComp)
+        y = np.append(y, yComp)
 
         # Append Rcomp diagonally onto existing R assuming obs are independent)
         # Calculate shape of R and Rcomp
@@ -721,7 +721,7 @@ def makeObsForDA(
         R = np.array(R)
 
         # Append Hcomp onto H
-        H.append(Hcomp, axis=0)
+        H = np.array(np.bmat([[H], [Hcomp]]))
 
     return y, H, R
 
@@ -1155,6 +1155,61 @@ def plotSWspeed(
     )
     ax.plot(
         np.arange(0, 359, deltaPhiDeg), vPlot[3, :],
+        color='g', linewidth=lWid, label='Posterior'
+    )
+    ax.set_xlabel('Time (days)', fontsize=fontSize)
+    ax.set_ylabel('Speed (km/s)', fontsize=fontSize)
+    ax.set_xlim(0, 360)
+    ax.set_ylim(240, 800)
+
+    # Set fontsize for axis ticks
+    ax.tick_params(axis='both', which='major', labelsize=fontSize)
+    ax.tick_params(axis='both', which='minor', labelsize=int(0.8 * fontSize))
+
+    # Set x and y ticks
+    ax.set_yticks(np.arange(300, 801, 100))
+    ax.set_yticklabels(['300', '400', '500', '600', '700', '800'])
+
+    ax.set_xticks(np.append(np.arange(0, 361, 53.3), 360))
+    ax.set_xticklabels(['0', '4', '8', '12', '16', '20', '24', '27'])
+
+    # ax.set_xticks(
+    #    np.append(np.arange(0, 361, 53.3), 360), ('0', '4', '8', '12', '16', '20', '24', '27'),
+    #    fontsize=fontSize)
+    # if w == 0:
+    plt.title(fr'Solar wind speed at {spacecraftName}', fontsize=fontSize)
+    ax.legend()
+    # plt.tight_layout()
+    saveFileLoc = os.path.join(outputDir, f'SWspeed{spacecraftName}_MJDstart{int(currMJD)}.pdf')
+    plt.savefig(saveFileLoc)
+    # plt.show()
+
+    return fig, ax
+
+
+def plotSWspeedDict(
+        deltaPhiDeg, vPlotDict, outputDir, spacecraftName, currMJD, fontSize=18, lWid=2.0
+):
+    fig, ax = plt.subplots(
+        nrows=1, ncols=1, figsize=(12, 6),
+        # constrained_layout=True
+    )
+    #columns = ["observations", "ensMean", "prior", "posterior"]
+    # plt.figure(figsize=(12, 6))
+    ax.plot(
+        np.arange(0, 359, deltaPhiDeg), vPlotDict.loc["observations"],
+        color='k', linewidth=lWid, label=f'{spacecraftName} Data'
+    )
+    ax.plot(
+        np.arange(0, 359, deltaPhiDeg), vPlotDict.loc["ensMean"],
+        color='m', linewidth=lWid, label='MAS ens. mean'
+    )
+    ax.plot(
+        np.arange(0, 359, deltaPhiDeg), vPlotDict.loc["prior"],
+        color='b', linewidth=lWid, label='Prior'
+    )
+    ax.plot(
+        np.arange(0, 359, deltaPhiDeg), vPlotDict.loc["posterior"],
         color='g', linewidth=lWid, label='Posterior'
     )
     ax.set_xlabel('Time (days)', fontsize=fontSize)

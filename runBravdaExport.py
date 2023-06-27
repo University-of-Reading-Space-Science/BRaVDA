@@ -136,10 +136,10 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
         if not os.path.isdir(dirPath):
             os.makedirs(dirPath)
 
-    #Make directories to hold all observation files
+    # Make directories to hold all observation files
     for dirName in obsFileDf.index:
         dirPath = os.path.join(outputDir, dirName, '')
-
+        print(dirPath)
         # Check if dir exists, if not, make it
         if not os.path.isdir(dirPath):
             os.makedirs(dirPath)
@@ -217,6 +217,9 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
     RMSEACEPrior = np.zeros(noOfWindows)
     RMSEACEPosterior = np.zeros(noOfWindows)
     RMSEACEMASMean = np.zeros(noOfWindows)
+
+    # Create dataframe to hold all RMSE values over all windows
+    rmseAllWinDf = pd.DataFrame(columns=["ensMean", "prior", "posterior"])
 
     ##################################################################################
     # Make MJD and initial ensemble files and store them in an array to be read in later
@@ -492,100 +495,51 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
         #############################################################
         # Extract variables for plotting at each observation location
         #############################################################
-        # Initialise variables
-        vPlotTempA = np.zeros((3, noOfLonPoints))
-        vPlotTempB = np.zeros((3, noOfLonPoints))
-        vPlotTempC = np.zeros((3, noOfLonPoints))
+        # Initialise dictionaries to hold plotting data at each observation location
+        vPlotDf = pd.DataFrame(columns=["observations", "ensMean", "prior", "posterior"])
+        rmseDf = pd.DataFrame(columns=["ensMean", "prior", "posterior"])
 
-        # Initialise plotting variables for each obs. location
-        # Column 0=Obs. values, column 1=MAS Mean speed,
-        # column 2=Prior speed, column 3= Posterior speed
-        vSterAPlot = np.ones((4, noOfLonPoints)) * np.nan
-        vSterBPlot = np.ones((4, noOfLonPoints)) * np.nan
-        vACEPlot = np.ones((4, noOfLonPoints)) * np.nan
+        vPriorObs = np.zeros((noOfLonPoints))
+        vPostObs = np.zeros((noOfLonPoints))
+        vEnsObs = np.zeros((noOfLonPoints))
 
-        ######################################################
-        # Extract variables for ACE satellite and order variables
-        # as ascending in time (-Carr. Rot.)
-        ######################################################
-        # Extract velocities at STERA radii (and reorder)
-        vPlotTempA[0, :] = np.copy(vMASMean[w, obsPosDf.loc["A"]["radCoord"][w], ::-1])
-        vPlotTempA[1, :] = np.copy(vIter[0, obsPosDf.loc["A"]["radCoord"][w], ::-1])
-        vPlotTempA[2, :] = np.copy(vIter[-1, obsPosDf.loc["A"]["radCoord"][w], ::-1])
+        for obsName in obsCompDf.index:
+            radCoordReq = radCoordDict[obsName]
+            lonCoordReq = lonCoordDict[obsName]
 
-        # Extract velocities at STERA radii (and reorder)
-        vPlotTempB[0, :] = np.copy(vMASMean[w, obsPosDf.loc["B"]["radCoord"][w], ::-1])
-        vPlotTempB[1, :] = np.copy(vIter[0, obsPosDf.loc["B"]["radCoord"][w], ::-1])
-        vPlotTempB[2, :] = np.copy(vIter[-1, obsPosDf.loc["B"]["radCoord"][w], ::-1])
+            vPriorTemp = np.copy(vIter[0, radCoordReq, ::-1])
+            vPostTemp = np.copy(vIter[-1, radCoordReq, ::-1])
+            vEnsTemp = np.copy(vMASMean[w, radCoordReq, ::-1])
+            vObsTemp = np.copy(obsCompDf.loc[obsName]["yPlot"][::-1])
 
-        # Extract velocities at ACE radius (and reorder)
-        vPlotTempC[0, :] = np.copy(vMASMean[w, obsPosDf.loc["C"]["radCoord"][w], ::-1])
-        vPlotTempC[1, :] = np.copy(vIter[0, obsPosDf.loc["C"]["radCoord"][w], ::-1])
-        vPlotTempC[2, :] = np.copy(vIter[-1, obsPosDf.loc["C"]["radCoord"][w], ::-1])
+            for i in range(noOfLonPoints):
+                # Extract relevant solar wind velocities at STEREO A location
+                obsTrans = int(np.mod(i + lonCoordReq, noOfLonPoints))
+                vPriorObs[obsTrans] = np.copy(vPriorTemp[i])
+                vPostObs[obsTrans] = np.copy(vPostTemp[i])
+                vEnsObs[obsTrans] = np.copy(vEnsTemp[i])
 
-        ######################################################
-        # Copy observation data (and reorder)
-        ######################################################
-        vSterAPlot[0, :] = np.copy(yAPlot[::-1])
-        vSterBPlot[0, :] = np.copy(yBPlot[::-1])
-        vACEPlot[0, :] = np.copy(yCPlot[::-1])
+            vPlotDf.loc[obsName] = [vObsTemp, vEnsObs, vPriorObs, vPostObs]
 
-        for i in range(noOfLonPoints):
-            # Extract relevant solar wind velocities at STEREO A location
-            sterATrans = int(np.mod(i + obsPosDf.loc["A"]["lonCoord"][w], noOfLonPoints))
-            vSterAPlot[1, sterATrans] = np.copy(vPlotTempA[0, i])
-            vSterAPlot[2, sterATrans] = np.copy(vPlotTempA[1, i])
-            vSterAPlot[3, sterATrans] = np.copy(vPlotTempA[2, i])
+            # Calculate RMSEs
+            rmsePriorTemp = bme.calcStateObsRMSE(vPriorObs, vObsTemp)
+            rmsePostTemp = bme.calcStateObsRMSE(vPostObs, vObsTemp)
+            rmseEnsTemp = bme.calcStateObsRMSE(vEnsObs, vObsTemp)
 
-            # Extract relevant solar wind velocities at STEREO B location
-            sterBTrans = int(np.mod(i + obsPosDf.loc["B"]["lonCoord"][w], noOfLonPoints))
-            vSterBPlot[1, sterBTrans] = np.copy(vPlotTempB[0, i])
-            vSterBPlot[2, sterBTrans] = np.copy(vPlotTempB[1, i])
-            vSterBPlot[3, sterBTrans] = np.copy(vPlotTempB[2, i])
+            # Append RMSEs into rmseAllWinDf
+            rmseDf.loc[obsName] = [rmseEnsTemp, rmsePriorTemp, rmsePostTemp]
+            for col in rmseDf.columns:
+                try:
+                    rmseAllWinDf.loc[obsName][col].append(rmseDf.loc[obsName][col])
+                except:
+                    rmseAllWinDf.loc[obsName] = [[x] for x in rmseDf.loc[obsName][:]]
+                    break
 
-            # Extract relevant solar wind velocities at ACE location
-            aceTrans = int(np.mod(i + obsPosDf.loc["C"]["lonCoord"][w], noOfLonPoints))
-            vACEPlot[1, aceTrans] = np.copy(vPlotTempC[0, i])
-            vACEPlot[2, aceTrans] = np.copy(vPlotTempC[1, i])
-            vACEPlot[3, aceTrans] = np.copy(vPlotTempC[2, i])
-
-        ########################################################################
-        # Calculate RMSEs of Prior, MASMean and Posterior compared to obs. data
-        ########################################################################
-        # Calculate RMSEs
-        RMSESTERAMASMean[w] = bme.calcStateObsRMSE(vSterAPlot[1, :], vSterAPlot[0, :])
-        RMSESTERAPrior[w] = bme.calcStateObsRMSE(vSterAPlot[2, :], vSterAPlot[0, :])
-        RMSESTERAPosterior[w] = bme.calcStateObsRMSE(vSterAPlot[3, :], vSterAPlot[0, :])
-
-        # STEREO B
-        RMSESTERBMASMean[w] = bme.calcStateObsRMSE(vSterBPlot[1, :], vSterBPlot[0, :])
-        RMSESTERBPrior[w] = bme.calcStateObsRMSE(vSterBPlot[2, :], vSterBPlot[0, :])
-        RMSESTERBPosterior[w] = bme.calcStateObsRMSE(vSterBPlot[3, :], vSterBPlot[0, :])
-
-        # ACE
-        RMSEACEMASMean[w] = bme.calcStateObsRMSE(vACEPlot[1, :], vACEPlot[0, :])
-        RMSEACEPrior[w] = bme.calcStateObsRMSE(vACEPlot[2, :], vACEPlot[0, :])
-        RMSEACEPosterior[w] = bme.calcStateObsRMSE(vACEPlot[3, :], vACEPlot[0, :])
-
-        ##############################################################################
-        # Plot solar wind speeds at STEREO A, STEREO B and ACE
-        ##############################################################################
-        if makePlots:
-            swFileDir = os.path.join(outputDir, 'plots', 'swOver27d')
-            fig1, ax1 = bme.plotSWspeed(
-                deltaPhiDeg, vSterAPlot, swFileDir, 'STA', currMJD[w], fontSize=18, lWid=2.0
-            )
-            # plt.show()
-
-            fig2, ax2 = bme.plotSWspeed(
-                deltaPhiDeg, vSterBPlot, swFileDir, 'STB', currMJD[w], fontSize=18, lWid=2.0
-            )
-            # plt.show()
-
-            fig3, ax3 = bme.plotSWspeed(
-                deltaPhiDeg, vACEPlot, swFileDir, 'ACE', currMJD[w], fontSize=18, lWid=2.0
-            )
-            # plt.show()
+            if makePlots:
+                swFileDir = os.path.join(outputDir, 'plots', 'swOver27d')
+                fig, ax = bme.plotSWspeedDict(
+                    deltaPhiDeg, vPlotDf.loc[obsName], swFileDir, obsName, currMJD[w], fontSize=18, lWid=2.0
+                )
 
         ###########################################################################
         # Output RMSEs for user
@@ -593,35 +547,48 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
         print('------------------------------------------------------')
         print('Window no. ' + str(w))
         print(' ')
-        print('RMSE STEREO A MASMean = ' + str(RMSESTERAMASMean[w]))
-        print('RMSE STEREO A Prior = ' + str(RMSESTERAPrior[w]))
-        print('RMSE STEREO A Posterior= ' + str(RMSESTERAPosterior[w]))
-        print(' ')
-        print('RMSE STEREO B MASMean = ' + str(RMSESTERBMASMean[w]))
-        print('RMSE STEREO B Prior = ' + str(RMSESTERBPrior[w]))
-        print('RMSE STEREO B Posterior= ' + str(RMSESTERBPosterior[w]))
-        print(' ')
-        print('RMSE ACE MASMean = ' + str(RMSEACEMASMean[w]))
-        print('RMSE ACE Prior = ' + str(RMSEACEPrior[w]))
-        print('RMSE ACE Posterior= ' + str(RMSEACEPosterior[w]))
 
-        ###########################################################################
-        # Write RMSEs into output file for further use
-        ###########################################################################
         outFile.write('------------------------------------------------------\n')
         outFile.write(f'Window no. {w} \n\n')
-        outFile.write(f'RMSE STEREO A MASMean = {RMSESTERAMASMean[w]} \n')
-        outFile.write(f'RMSE STEREO A Prior = {RMSESTERAPrior[w]} \n')
-        outFile.write(f'RMSE STEREO A Posterior = {RMSESTERAPosterior[w]} \n\n')
+        for obsName in rmseAllWinDf.index:
+            print(f'RMSE {obsName} MASMean = {rmseAllWinDf.loc[obsName]["ensMean"][w]}')
+            print(f'RMSE {obsName} Prior = {rmseAllWinDf.loc[obsName]["prior"][w]}')
+            print(f'RMSE {obsName} Posterior = {rmseAllWinDf.loc[obsName]["posterior"][w]}')
+            print(' ')
 
-        outFile.write(f'RMSE STEREO B MASMean = {RMSESTERBMASMean[w]}\n')
-        outFile.write(f'RMSE STEREO B Prior = {RMSESTERBPrior[w]}\n')
-        outFile.write(f'RMSE STEREO B Posterior= {RMSESTERBPosterior[w]}\n\n')
+            outFile.write(f'RMSE {obsName} MASMean = {rmseAllWinDf.loc[obsName]["ensMean"][w]}')
+            outFile.write(f'RMSE {obsName} Prior = {rmseAllWinDf.loc[obsName]["prior"][w]}')
+            outFile.write(f'RMSE {obsName} Posterior = {rmseAllWinDf.loc[obsName]["posterior"][w]}')
+            outFile.write(' ')
 
-        outFile.write(f'RMSE ACE MASMean = {RMSEACEMASMean[w]} \n')
-        outFile.write(f'RMSE ACE Prior = {RMSEACEPrior[w]}\n')
-        outFile.write(f'RMSE ACE Posterior= {RMSEACEPosterior[w]}\n')
-        outFile.write('------------------------------------------------------\n\n')
+            ######################################################################################
+            # Write ACE, STEREOA and STEREOB obs and prior, post, MAS ens in obs loc.
+            # during solar rotation to file for later use
+            # Data output is ASCENDING IN TIME
+            ######################################################################################
+            outObsFile = os.path.join(
+                outputDir, obsName, f'obs_MJDstart{int(currMJD[w])}.txt'
+            )
+            with open(outObsFile, 'w') as fOut:
+                np.savetxt(fOut, vPlotDf.loc[obsName]["observations"])
+
+            outEnsFile = os.path.join(
+                outputDir, obsName, f'ensMean_MJDstart{int(currMJD[w])}.txt'
+            )
+            with open(outEnsFile, 'w') as fOut:
+                np.savetxt(fOut, vPlotDf.loc[obsName]["ensMean"])
+
+            outPriorFile = os.path.join(
+                outputDir, obsName, f'prior_MJDstart{int(currMJD[w])}.txt'
+            )
+            with open(outPriorFile, 'w') as fOut:
+                np.savetxt(fOut, vPlotDf.loc[obsName]["prior"])
+
+            outPostFile = os.path.join(
+                outputDir, obsName, f'post_MJDstart{int(currMJD[w])}.txt'
+            )
+            with open(outPostFile, 'w') as fOut:
+                np.savetxt(fOut, vPlotDf.loc[obsName]["posterior"])
 
         #############################################################################
         # Write MASMean, prior and posterior arrays to file for later use
@@ -647,92 +614,6 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
         )
         with open(outWindowPostFile, 'w') as fOutPost:
             np.savetxt(fOutPost, vPosterior[w, :, ::-1])
-
-        ######################################################################################
-        # Write ACE, STEREOA and STEREOB obs and prior, post, MAS ens in obs loc.
-        # during solar rotation to file for later use
-        # Data output is ASCENDING IN TIME
-        ######################################################################################
-        ###################
-        # STEREO-A
-        ###################
-        outSTERAObsFile = os.path.join(
-            outputDir, 'STERA', f'obs_MJDstart{int(currMJD[w])}.txt'
-        )
-        with open(outSTERAObsFile, 'w') as fOutSTA:
-            np.savetxt(fOutSTA, vSterAPlot[0, :])
-
-        outSTERAmasFile = os.path.join(
-            outputDir, 'STERA', f'masMean_MJDstart{int(currMJD[w])}.txt'
-        )
-        with open(outSTERAmasFile, 'w') as fOutSTA:
-            np.savetxt(fOutSTA, vSterAPlot[1, :])
-
-        outSTERApriorFile = os.path.join(
-            outputDir, 'STERA', f'prior_MJDstart{int(currMJD[w])}.txt'
-        )
-        with open(outSTERApriorFile, 'w') as fOutSTA:
-            np.savetxt(fOutSTA, vSterAPlot[2, :])
-
-        outSTERApostFile = os.path.join(
-            outputDir, 'STERA', f'post_MJDstart{int(currMJD[w])}.txt'
-        )
-        with open(outSTERApostFile, 'w') as fOutSTA:
-            np.savetxt(fOutSTA, vSterAPlot[3, :])
-
-        ###############################
-        # STEREO-B
-        ###############################
-        outSTERBObsFile = os.path.join(
-            outputDir, 'STERB', f'obs_MJDstart{int(currMJD[w])}.txt'
-        )
-        with open(outSTERBObsFile, 'w') as fOutSTB:
-            np.savetxt(fOutSTB, vSterBPlot[0, :])
-
-        outSTERBmasFile = os.path.join(
-            outputDir, 'STERB', f'masMean_MJDstart{int(currMJD[w])}.txt'
-        )
-        with open(outSTERBmasFile, 'w') as fOutSTB:
-            np.savetxt(fOutSTB, vSterBPlot[1, :])
-
-        outSTERBpriorFile = os.path.join(
-            outputDir, 'STERB', f'prior_MJDstart{int(currMJD[w])}.txt'
-        )
-        with open(outSTERBpriorFile, 'w') as fOutSTB:
-            np.savetxt(fOutSTB, vSterBPlot[2, :])
-
-        outSTERBpostFile = os.path.join(
-            outputDir, 'STERB', f'post_MJDstart{int(currMJD[w])}.txt'
-        )
-        with open(outSTERBpostFile, 'w') as fOutSTB:
-            np.savetxt(fOutSTB, vSterBPlot[3, :])
-
-        ##################################
-        # ACE
-        ##################################
-        outACEObsFile = os.path.join(
-            outputDir, 'ACE', f'obs_MJDstart{int(currMJD[w])}.txt'
-        )
-        with open(outACEObsFile, 'w') as fOutACE:
-            np.savetxt(fOutACE, vACEPlot[0, :])
-
-        outACEmasFile = os.path.join(
-            outputDir, 'ACE', f'masMean_MJDstart{int(currMJD[w])}.txt'
-        )
-        with open(outACEmasFile, 'w') as fOutACE:
-            np.savetxt(fOutACE, vACEPlot[1, :])
-
-        outACEpriorFile = os.path.join(
-            outputDir, 'ACE', f'prior_MJDstart{int(currMJD[w])}.txt'
-        )
-        with open(outACEpriorFile, 'w') as fOutACE:
-            np.savetxt(fOutACE, vACEPlot[2, :])
-
-        outACEpostFile = os.path.join(
-            outputDir, 'ACE', f'post_MJDstart{int(currMJD[w])}.txt'
-        )
-        with open(outACEpostFile, 'w') as fOutACE:
-            np.savetxt(fOutACE, vACEPlot[3, :])
 
         print('\n---------------------------------------------------------------------------------')
         print(f'------ Time Taken to run window = {int((time.time() - startWin_time) / 60)} minutes '

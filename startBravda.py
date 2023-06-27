@@ -93,7 +93,7 @@ def bravdafunction(forecastdate, obsToAssim = 'C', usecustomens = True,
                   locRad, gTol, makePlots, usecustomens=usecustomens)
 
 if __name__=="__main__":
-    #Specify forecastDate
-    fcDate = datetime.datetime(2011, 8, 11)
+    # Specify forecastDate
+    fcDate = datetime.datetime(2011, 7, 30)
     # Run BRaVDA function
-    bravdafunction(fcDate, obsToAssim=["ACE"], usecustomens=False, runoutputdir='', plottimeseries=True, corona='MAS')
+    bravdafunction(fcDate, obsToAssim=["STERA", "STERB"], usecustomens=False, runoutputdir='', plottimeseries=True, corona='MAS')
