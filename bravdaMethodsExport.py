@@ -391,33 +391,50 @@ def makeMJDfile(MJDstart, noOfLon, fileMJDOut, daySolarRot=27.2753):
     return None
 
 
+def plotPriorErrCov(B, noOfLonPoints=128, local=False, minMax=5700):
+
+    absLim = np.abs(minMax)
+    levelStep = (2 * absLim) / 120
+
+    # Make a plot of the prior error covariance matrix
+    fig = plt.figure()
+    im = plt.contourf(
+        range(noOfLonPoints), range(noOfLonPoints), B,
+        cmap=plt.cm.seismic, levels=range(-absLim, absLim, levelStep)
+    )
+    cobar = plt.colorbar(im)
+    cobar.set_label('km/s')
+    plt.xlabel('Carrington longitude coordinate')
+    plt.ylabel('Carrington longitude coordinate')
+    if local:
+        plt.title('Localised B matrix')
+    else:
+        plt.title('Unlocalised B matrix')
+
+    plt.show()
+
+    return
+
+
 def createUnpertAndBMatrix(
         deltaPhiDeg, locRad, noOfLonPoints, ensFile,
-        initMJDCR, currMJD, noOfMASens
+        initMJDCR, currMJD, noOfMASens, plotB=False, useLogTrans=False
 ):
     # Read ensemble file, extract the unperturbed first member to use as the prior
     # and generate the B matrix with the rest
 
     # Read input ensemble file
     vIn = np.loadtxt(ensFile)
-    '''plt.plot(range(len(vIn[0, :])), vIn[0, :])
-    plt.show()
-    print(np.shape(vIn))'''
 
-    #sys.exit()
     ################################
     # Rotate vIn to required Carrington longitude
     ###############################
-    rotLonCoord = int(np.round(128 * (1 - ((currMJD - initMJDCR) / 27.2753))))
+    rotLonCoord = int(np.round(noOfLonPoints * (1 - ((currMJD - initMJDCR) / 27.2753))))
     vIn[:, :] = np.append(
         vIn[:, rotLonCoord:], vIn[:, :rotLonCoord], axis=1
     )
     ####################################################
 
-    '''plt.plot(range(len(vIn[0, :])), vIn[0, :])
-    plt.show()
-    print(np.shape(vIn))
-    sys.exit()'''
     # Extract the unperturbed ensemble member (the first one)
     unperturbEnsMem = vIn[0, :]
 
@@ -425,19 +442,11 @@ def createUnpertAndBMatrix(
     meanEns = vIn[1:, :].mean(axis=0)
     pertEns = vIn[1:, :] - meanEns
 
-    B = (1 / ((noOfMASens - 1) - 1)) * np.transpose(pertEns).dot(pertEns)
+    B_unloc = (1 / ((noOfMASens - 1) - 1)) * np.transpose(pertEns).dot(pertEns)
+    B = np.copy(B_unloc)
 
-    '''plt.figure(3)
-    im = plt.contourf(
-        range(128),range(128), B,
-        cmap=plt.cm.seismic,levels = range(-5700,5700,200)
-    )
-    cobar = plt.colorbar(im)
-    cobar.set_label('km/s')
-    plt.xlabel('Carrington longitude coordinate')
-    plt.ylabel('Carrington longitude coordinate')
-    plt.title('Localised B matrix')
-    plt.show()'''
+    if plotB:
+        plotPriorErrCov(B, noOfLonPoints, local=False, minMax=5700)
 
     if locRad != 0:
         locMat = np.zeros((np.shape(B)))
@@ -449,23 +458,102 @@ def createUnpertAndBMatrix(
                 distBetweenPoints = min(dist1, dist2)
                 locMat[i, j] = np.exp(-(distBetweenPoints ** 2) / (2 * (locRad ** 2)))
 
-        B = locMat * np.copy(B)
+        B_loc = locMat * np.copy(B_unloc)
+        B = np.copy(B_loc)
 
-        '''plt.figure(4)
-        im = plt.contourf(
-            range(128),range(128), B,
-            cmap=plt.cm.seismic,levels = range(-5700,5700,200)
-        )
-        cobar = plt.colorbar(im)
-        cobar.set_label('km/s')
-        plt.xlabel('Carrington longitude coordinate')
-        plt.ylabel('Carrington longitude coordinate')
-        plt.title('Localised B matrix')
-        plt.show()'''
-    '''plt.plot(range(len(unperturbEnsMem)), unperturbEnsMem)
-    plt.show()
-    print(np.shape(vIn))'''
+        if plotB:
+            plotPriorErrCov(B, noOfLonPoints, local=True, minMax=5700)
+
     return unperturbEnsMem, meanEns[:noOfLonPoints], B[:noOfLonPoints, :noOfLonPoints]
+
+
+def createUnpertAndBPrecond(
+        deltaPhiDeg, locRad, noOfLonPoints, ensFile,
+        initMJDCR, currMJD, noOfMASens, minSWspeed=None, plotB=False, useLogTrans=False
+):
+    # Read ensemble file, extract the unperturbed first member to use as the prior
+    # and generate the B matrix with the rest
+
+    # Read input ensemble file
+    vIn = np.loadtxt(ensFile)
+
+    ################################
+    # Rotate vIn to required Carrington longitude
+    ###############################
+    rotLonCoord = int(np.round(noOfLonPoints * (1 - ((currMJD - initMJDCR) / 27.2753))))
+    vIn[:, :] = np.append(
+        vIn[:, rotLonCoord:], vIn[:, :rotLonCoord], axis=1
+    )
+    ####################################################
+
+    # Extract the unperturbed ensemble member (the first one)
+    unperturbEnsMem = vIn[0, :].copy()
+    print(unperturbEnsMem.max())
+    # Generate perturbation ensemble (X-mean(X))
+    meanEns = vIn[1:, :].mean(axis=0)
+    pertEns = vIn[1:, :] - meanEns
+
+    B_unloc = (1 / ((noOfMASens - 1) - 1)) * np.transpose(pertEns).dot(pertEns)
+    B = np.copy(B_unloc)
+
+    if useLogTrans:
+        unperturbLogEnsMem = np.log(vIn[0, :] - 200)
+        # logEns = np.log(vIn[1:, :] - 200)
+        # meanLogEns = logEns.mean(axis=0)
+        # pertLogEns = logEns - meanLogEns
+
+        invDiagMean = np.diag([1.0/m for m in meanEns])
+        onesNN = np.ones((np.shape(B_unloc)))
+
+        Blog_unloc = np.log(onesNN + invDiagMean.dot(B_unloc).dot(invDiagMean))
+
+        meanLogEns = np.log(meanEns) - (0.5 * np.diagonal(Blog_unloc))
+
+        #Blog_unloc = (1 / ((noOfMASens - 1) - 1)) * np.transpose(pertLogEns).dot(pertLogEns)
+        Blog = np.copy(Blog_unloc)
+
+    if plotB:
+        plotPriorErrCov(B_unloc, noOfLonPoints, local=False, minMax=5700)
+
+    if locRad != 0:
+        locMat = np.zeros((np.shape(B)))
+
+        for i in range(noOfLonPoints):
+            for j in range(noOfLonPoints):
+                dist1 = abs((i - j) * deltaPhiDeg)
+                dist2 = 360 - abs((i - j) * deltaPhiDeg)
+                distBetweenPoints = min(dist1, dist2)
+                locMat[i, j] = np.exp(-(distBetweenPoints ** 2) / (2 * (locRad ** 2)))
+
+        B_loc = locMat * np.copy(B_unloc)
+        B = np.copy(B_loc)
+
+        if useLogTrans:
+            Blog_loc = locMat * np.copy(Blog_unloc)
+            Blog = np.copy(Blog_loc)
+
+        if plotB:
+            plotPriorErrCov(B_loc, noOfLonPoints, local=True, minMax=5700)
+
+    ###################################################################
+    # Calculate the square-root of the prior error covariance matrix
+    ###################################################################
+    # Compute eigenvalues and eigenvectors
+    B_eval, B_evect = np.linalg.eigh(B)
+    # Ensuring square root matrix exists
+    assert (B_eval >= 0).all()
+    sqrt_B = B_evect * np.sqrt(B_eval) @ np.linalg.inv(B_evect)
+
+    if useLogTrans:
+        # Compute eigenvalues and eigenvectors
+        Blog_eval, Blog_evect = np.linalg.eigh(Blog)
+        # Ensuring square root matrix exists
+        assert (Blog_eval >= 0).all()
+        sqrt_Blog = Blog_evect * np.sqrt(Blog_eval) @ np.linalg.inv(Blog_evect)
+
+        return unperturbEnsMem, meanEns[:noOfLonPoints], sqrt_B[:noOfLonPoints, :noOfLonPoints], unperturbLogEnsMem, meanLogEns[:noOfLonPoints], sqrt_Blog[:noOfLonPoints, :noOfLonPoints]
+    else:
+        return unperturbEnsMem, meanEns[:noOfLonPoints], sqrt_B[:noOfLonPoints, :noOfLonPoints]
 
 
 def forwardRadModelNoLat(
@@ -513,7 +601,7 @@ def forwardRadModelNoLat(
 def makePriors(
         fileVrEns, initMJDCR, currMJD, locRadDeg, nEns,
         r, rH, deltaRrs, deltaPhi, alpha, solarRotFreq,
-        noOfRadPoints, noOfLonPoints, incMASMean=True
+        noOfRadPoints, noOfLonPoints, useBlogTrans=False, precondState=False
 ):
     # Localisation radius should be entered in degrees
     # deltaPhi should be in radians
@@ -524,11 +612,21 @@ def makePriors(
     #########################################
     # Make B matrix and extract prior state and ensemble Mean
     #########################################
-    # Generate prior mean and prior covariance matrix
-    unpertEnsMem, meanPrior, B = createUnpertAndBMatrix(
-        deltaPhiDeg, locRadDeg, noOfLonPoints, fileVrEns,
-        initMJDCR, currMJD, nEns
-    )
+    if precondState:
+        if useBlogTrans:
+            # Generate prior mean and prior covariance matrix
+            unpertEnsMem, meanPrior, Bhalf, unpertLogEnsMem, meanLogPrior, BlogHalf = createUnpertAndBPrecond(
+                deltaPhiDeg, locRadDeg, noOfLonPoints, fileVrEns, initMJDCR, currMJD, nEns, useLogTrans=useBlogTrans)
+        else:
+            # Generate prior mean and prior covariance matrix
+            unpertEnsMem, meanPrior, Bhalf = createUnpertAndBPrecond(deltaPhiDeg, locRadDeg, noOfLonPoints, fileVrEns,
+                                                                     initMJDCR, currMJD, nEns)
+    else:
+        # Generate prior mean and prior covariance matrix
+        unpertEnsMem, meanPrior, B = createUnpertAndBMatrix(
+            deltaPhiDeg, locRadDeg, noOfLonPoints, fileVrEns,
+            initMJDCR, currMJD, nEns
+        )
 
     ##############################################
     # Generate prior and MAS Mean state (if using)
@@ -536,11 +634,14 @@ def makePriors(
     # Initialise Prior state
     forwardStatePrior = np.zeros((noOfRadPoints, noOfLonPoints))
     forwardStatePrior[0, :] = unpertEnsMem.copy()
+    print(forwardStatePrior[0, :].min())
+    # Initialise MASMean state
+    forwardStateMASMean = np.zeros((noOfRadPoints, noOfLonPoints))
+    forwardStateMASMean[0, :] = np.copy(meanPrior[:])
 
-    if incMASMean:
-        # Initialise MASMean state
-        forwardStateMASMean = np.zeros((noOfRadPoints, noOfLonPoints))
-        forwardStateMASMean[0, :] = np.copy(meanPrior[:])
+    if useBlogTrans:
+        forwardStateLogPrior = np.zeros((noOfRadPoints, noOfLonPoints))
+        forwardStateLogPrior[0, :] = unpertLogEnsMem.copy()
 
     ##########################################################################
     # Run solar wind propagation model to get estimates of the solar wind throughout domain
@@ -553,23 +654,38 @@ def makePriors(
             solarRotFreq, alpha, rH, noOfLonPoints
         )
 
-        if incMASMean:
-            # Run MAS Mean forward
-            forwardStateMASMean[rIndex, :] = forwardRadModelNoLat(
-                forwardStateMASMean[rIndex - 1, :], forwardStateMASMean[0, :],
-                r[rIndex - 1], rIndex - 1, deltaRrs, deltaPhi, solarRotFreq,
-                alpha, rH, noOfLonPoints
-            )
+        # Run MAS Mean forward
+        forwardStateMASMean[rIndex, :] = forwardRadModelNoLat(
+            forwardStateMASMean[rIndex - 1, :], forwardStateMASMean[0, :],
+            r[rIndex - 1], rIndex - 1, deltaRrs, deltaPhi, solarRotFreq,
+            alpha, rH, noOfLonPoints
+        )
 
-    if incMASMean:
-        return B, forwardStatePrior, forwardStateMASMean
+    # if useBlogTrans:
+    #     print(forwardStatePrior[:, :].min())
+    #     #Check forwardStateLogPrior = log(forwardStatePrior[0]-200)
+    #     assert(
+    #         np.abs(forwardStateLogPrior[0, :] - np.log(forwardStatePrior[0, :]-200)).max() < 1e-5
+    #     )
+    #     #print((forwardStatePrior-200).min())
+    #     forwardStateLogPrior = np.log(forwardStatePrior.copy() - 200)
+
+    ######################################################################
+    # Return prior state and error covariance matrix
+    # (or sqrt if using preconditioned state)
+    ######################################################################
+    if precondState:
+        if useBlogTrans:
+            return Bhalf, forwardStatePrior, forwardStateMASMean, BlogHalf, forwardStateLogPrior
+        else:
+            return Bhalf, forwardStatePrior, forwardStateMASMean
     else:
-        return B, forwardStatePrior
+            return B, forwardStatePrior, forwardStateMASMean
 
 
 def makeObs(
     fileObs, fileMJD, currMJD, noOfLonPoints,
-    lowerCutOff=0, upperCutOff=5000
+    lowerCutOff=0, upperCutOff=5000, useLogTrans=False
 ):
     #############################################################################
     # Generate observations from data in file
@@ -624,6 +740,11 @@ def makeObs(
     # Update the observation vector
     y = np.copy(yTemp)
 
+    # if useLogTrans:
+    #     yLog = np.log(y - 200)
+    #
+    #     return y, yLog, yPlot, obsToBeTaken, noOfObs
+    # else:
     return y, yPlot, obsToBeTaken, noOfObs
 
 
@@ -646,13 +767,18 @@ def possibleObsCheck(obsToUse):
 
     return
 
-def makeRcomp(obsUncDf, radCoordDict, nObsDict, vPrior, obsToUse):
+def makeRcomp(obsUncDf, radCoordDict, nObsDict, vPrior, obsToUse, useLogTrans=False):
     # Make R component of current observation
 
     # Calculate the uncertainty dependent on users choice in obsFile.dat
     if obsUncDf.loc[obsToUse]["obsErrCovType"] == 'B':
         b1 = obsUncDf.loc[obsToUse]["obsErrCov"] * vPrior[radCoordDict[obsToUse], :].mean()
         obsUncComp = b1 * np.ones(nObsDict[obsToUse])
+
+        if useLogTrans:
+            b1 = obsUncDf.loc[obsToUse]["obsErrCov"] * np.log(vPrior[radCoordDict[obsToUse], :] - 200).mean()
+            obsLogUncComp = b1 * np.ones(nObsDict[obsToUse])
+
     elif obsUncDf.loc[obsToUse]["obsErrCovType"] == 'C':
         obsUncComp = obsUncDf[obsToUse]["obsErrCov"] * np.ones(nObsDict[obsToUse])
     else:
@@ -666,6 +792,11 @@ def makeRcomp(obsUncDf, radCoordDict, nObsDict, vPrior, obsToUse):
     # Assume observations are not correlated
     Rcomp = np.diag(obsUncComp * obsUncComp)
 
+    # if useLogTrans:
+    #     RcompLog = np.diag(obsLogUncComp * obsLogUncComp)
+    #
+    #     return Rcomp, RcompLog
+    # else:
     return Rcomp
 
 
@@ -686,13 +817,18 @@ def extractRadObs(obsToUse, radCoordDict, noOfObsDict, radObs, nRadObs):
 def makeObsForDA(
         y, H, R, yDict,
         obsToUse, radCoordDict, lonCoordDict,
-        obsUncDf, obsToBeTakenDict, nObsDict, vPrior, noOfLonPoints
+        obsUncDf, obsToBeTakenDict, nObsDict, vPrior, noOfLonPoints,
+        useLogTrans=False, yLogDict=None, yLog=None, Rlog=None
 ):
     # Extract required observation
     yComp = yDict[obsToUse]
 
     #Generate required component of observation covariance matrix
-    Rcomp = makeRcomp(obsUncDf, radCoordDict, nObsDict, vPrior, obsToUse)
+    if useLogTrans:
+        yLogComp = yLogDict[obsToUse]
+        Rcomp, RlogComp = makeRcomp(obsUncDf, radCoordDict, nObsDict, vPrior, obsToUse, useLogTrans)
+    else:
+        Rcomp = makeRcomp(obsUncDf, radCoordDict, nObsDict, vPrior, obsToUse)
 
     # Generate observation operator for this component
     Hcomp = obsOp(noOfLonPoints, obsToBeTakenDict[obsToUse], [lonCoordDict[obsToUse]])
@@ -702,6 +838,10 @@ def makeObsForDA(
         y = yComp
         R = Rcomp
         H = Hcomp
+
+        # if useLogTrans:
+        #     yLog = yLogComp
+        #     Rlog = RlogComp
     else:
         y = np.append(y, yComp)
 
@@ -720,9 +860,21 @@ def makeObsForDA(
         ])
         R = np.array(R)
 
+        # if useLogTrans:
+        #     yLog = np.append(yLog, yLogComp)
+        #
+        #     Rlog = np.bmat([
+        #         [Rlog, Rz1],
+        #         [Rz2, RlogComp]
+        #     ])
+        #     Rlog = np.array(Rlog)
+
         # Append Hcomp onto H
         H = np.array(np.bmat([[H], [Hcomp]]))
 
+    # if useLogTrans:
+    #     return y, H, R, yLog, Rlog
+    # else:
     return y, H, R
 
 
@@ -882,6 +1034,79 @@ def obsOp(lengthState, obsToBeTakenSpace, lonCoord):
     return H
 
 
+def calcInnov(y, H, v, radObs, nRadObs):
+    # Calculate number of radial observations
+    noOfRadObs = len(radObs)
+    nObs = nRadObs[-1]
+
+    # Initialise innovation vector
+    innov = np.zeros(nObs)
+
+    # Calculate observational component of cost function
+    for k in range(noOfRadObs):
+        if k == 0:
+            # Extract required variables for current observation
+            obsRadReq = int(radObs[k])
+            nrUp = int(nRadObs[k])
+
+            # Calculate the components of the observational component of cost function
+            innov[0:nrUp] = y[0:nrUp] - H[0:nrUp, :].dot(v[obsRadReq, :])
+        else:
+            # Extract required variables for current observation
+            obsRadReq = int(radObs[k])
+            nrDown = int(nRadObs[k - 1])
+            nrUp = int(nRadObs[k])
+
+            # Calculate the components of the observational component of cost function
+            innov[nrDown:nrUp] = y[nrDown:nrUp] - H[nrDown:nrUp, :].dot(v[obsRadReq, :])
+
+    return innov
+
+
+def calcInnovLog(
+        y, H, vLog, radObs, nRadObs,
+        r, deltaRrs, deltaPhi, solarRotFreq, alpha, rH, noOfRadPoints, noOfLonPoints
+):
+
+    # Calculate number of radial observations
+    noOfRadObs = len(radObs)
+    nObs = nRadObs[-1]
+
+    # Initialise innovation vector
+    innov = np.zeros(nObs)
+
+    # Calculate velocity required in obs operator
+    v = np.zeros((noOfRadPoints, noOfLonPoints))
+    v[0, :] = 200 + np.exp(vLog[0, :])
+
+    # Run v forward in radius
+    for rIndex in range(1, noOfRadPoints):
+        v[rIndex, :] = forwardRadModelNoLat(
+            v[rIndex - 1, :], v[0, :], r[rIndex - 1], rIndex - 1,
+            deltaRrs, deltaPhi, solarRotFreq, alpha, rH, noOfLonPoints
+        )
+
+    # Calculate observational component of cost function
+    for k in range(noOfRadObs):
+        if k == 0:
+            # Extract required variables for current observation
+            obsRadReq = int(radObs[k])
+            nrUp = int(nRadObs[k])
+
+            # Calculate the components of the observational component of cost function
+            innov[0:nrUp] = y[0:nrUp] - H[0:nrUp, :].dot(v[obsRadReq, :])
+        else:
+            # Extract required variables for current observation
+            obsRadReq = int(radObs[k])
+            nrDown = int(nRadObs[k - 1])
+            nrUp = int(nRadObs[k])
+
+            # Calculate the components of the observational component of cost function
+            innov[nrDown:nrUp] = y[nrDown:nrUp] - H[nrDown:nrUp, :].dot(v[obsRadReq, :])
+
+    return innov
+
+
 def calcCostFuncNoLat(
         B, R, H, x, xb, v, y, radObs, nRadObs
 ):
@@ -895,7 +1120,7 @@ def calcCostFuncNoLat(
     # Calculate background component of cost function
     backDiff = x - xb
     Binv = np.linalg.pinv(B)
-    costFuncBack = np.transpose(backDiff).dot(Binv).dot(backDiff)
+    costFuncBack = 0.5 * np.transpose(backDiff).dot(Binv).dot(backDiff)
 
     # Calculate observational component of cost function
     for r in range(len(radObs)):
@@ -909,7 +1134,7 @@ def calcCostFuncNoLat(
             Rinv = np.linalg.pinv(R[0:nrUp, 0:nrUp])
 
             # Calculate observational component of cost function for FIRST observation
-            costFuncObs = np.transpose(innov).dot(Rinv).dot(innov)
+            costFuncObs = 0.5 * np.transpose(innov).dot(Rinv).dot(innov)
         else:
             # Extract required variables for current observation
             obsRadReq = int(radObs[r])
@@ -921,7 +1146,7 @@ def calcCostFuncNoLat(
             Rinv = np.linalg.pinv(R[nrDown:nrUp, nrDown:nrUp])
 
             # Add current observational component to costFuncobs to build the sum
-            costFuncObs = costFuncObs + (
+            costFuncObs = costFuncObs + 0.5 * (
                 np.transpose(innov).dot(Rinv).dot(innov)
             )
 
@@ -1002,6 +1227,161 @@ def calcCostFuncForCGNoLat(
     costFunc = costFuncBack + costFuncObs
 
     return costFunc
+
+
+def lineSearchFunc(a, chi, chiB, searchDir, residual,
+        xNonlin, Bhalf, d, H, R,
+        r, deltaRrs, deltaPhi, solarRotFreq,
+        alpha, rH, noOfRadPoints, noOfLonPoints, radObs, nRadObs,
+        maxIter=5, tau=0.5, tolerance=1e-4
+    ):
+
+    costFuncVal = 10
+    threshold = 0
+    iterNo = 0
+
+    initCostFunc = calcCostFuncPrecond(
+            chi, chiB, xNonlin, Bhalf, d, H, R,
+            r, deltaRrs, deltaPhi, solarRotFreq,
+            alpha, rH, noOfRadPoints, noOfLonPoints, radObs, nRadObs,
+            printCF=False
+        )
+
+    # Normalise search direction
+    magSD = np.sqrt(searchDir.dot(searchDir))
+    searchDir = searchDir / magSD
+
+    aMin = np.copy(a)
+    m = np.transpose(residual).dot(searchDir)
+
+    while (iterNo<maxIter) and (costFuncVal >=threshold):
+        # Calculate line to search along
+        aLine = chi + (aMin * searchDir)
+
+        # Calculate cost function
+        costFuncVal = calcCostFuncPrecond(
+            aLine, chiB, xNonlin, Bhalf, d, H, R,
+            r, deltaRrs, deltaPhi, solarRotFreq,
+            alpha, rH, noOfRadPoints, noOfLonPoints, radObs, nRadObs,
+            printCF=False
+        )
+
+        # Calculate the threshold for costFuncVal to be below if algorithm is to continue
+        threshold = initCostFunc + (tolerance * m * aMin)
+
+        # Update alphaMin and iteration number
+        aMin = tau * aMin
+        iterNo = iterNo + 1
+    print(aMin/tau)
+    return aMin/tau
+
+
+# def lineSearchCG(V, b, d, Bhalf, H, R, timeObs, nTimeObs, vb, y, deltaT, deltaR, deltaPhi, solarRotFreq, lonGrid, \
+#                  alpha, r, r0, rH, noOfTimesteps, noOfRadPoints, noOfLonPoints, noOfEns, outp, uOmegaDir, \
+#                  Jn, gradJ, sn, c1=1e-4, tau=0.5, maxIter=5):
+#     # Perform line search to find optimal alpha that minimises J(Vn+alpha sn) or runs for maxIter iterations
+#
+#     # Initialise variables
+#     Jtest = 10  # Variable to hold J(V+alpha*sn) for latest iteration of alpha
+#     threshold = 0  # Set threshold lower than initial Jtest(above) to initialise while loop
+#     iterNo = 0
+#
+#     Vj = zeros((shape(V)), dtype=type(V[0]))  # Variable to hold latest estimate of V+alpha*sn
+#     Vout = zeros((shape(V)), dtype=type(V[0]))  # Output variable
+#     searchDir = zeros((shape(sn)), dtype=type(sn[0]))  # Variable to hold search direction
+#
+#     # Normalise sn to obtain the unit search direction
+#     searchDir = sn / linalg.norm(sn)
+#
+#     alphaMin = 1  # Variable to hold current estimate of alpha
+#
+#     m = transpose(gradJ).dot(searchDir)
+#
+#     # for j in range(maxIter):
+#     while ((Jtest >= threshold) and (iterNo < maxIter)):
+#         Vj = V + alphaMin * searchDir
+#
+#         # Calculate cost function at new test V=V0+alpha[j]s_n
+#         Jtest = calcCostFuncLoc2(Vj, b, d, Bhalf, H, R, timeObs, nTimeObs, vb, y, deltaT, deltaR, deltaPhi,
+#                                  solarRotFreq, \
+#                                  lonGrid, alpha, r, r0, rH, noOfTimesteps, noOfRadPoints, noOfLonPoints, noOfEns, outp,
+#                                  uOmegaDir)
+#
+#         # Calculate the threshold for Jtest to be below if algorithm is to continue
+#         threshold = Jn + (c1 * m * alphaMin)
+#
+#         # Update alphaMin and iteration number
+#         alphaMin = tau * alphaMin
+#         iterNo = iterNo + 1
+#
+#     # Calculate new value of V based on optimal alpha value
+#     Vout = Vj.copy()
+#
+#     return Vout, alphaMin / tau
+
+
+# def calcCostFuncPrecond(
+#         chi, chiB, xNonlin, Bhalf, d, H, R,
+#         r, deltaRrs, deltaPhi, solarRotFreq,
+#         alpha, rH, noOfRadPoints, noOfLonPoints, radObs, nRadObs,
+#         printCF=True
+# ):
+#     #################################################################
+#     # Function to calculate the cost function and print value
+#     #################################################################
+#     # Initialise variables
+#     costFuncObs = 0
+#
+#     # Calculate background component of cost function
+#     costFuncBack = 0.5 * np.transpose(chi - chiB).dot(chi - chiB)
+#
+#     # Initialise dx for use in observation part of cost function
+#     dx = np.zeros((noOfRadPoints, noOfLonPoints))
+#     dx[0, :] = Bhalf.dot(chi)
+#
+#     # Run Tangent Linear Model (TLM) using (dx = Bhalf*chi)
+#     for rIndex in range(1, noOfRadPoints):
+#         dx[rIndex, :] = TLMRadNoLat(
+#             dx[rIndex - 1, :], xNonlin[rIndex - 1, :], r[rIndex - 1], rIndex - 1,
+#             deltaRrs, deltaPhi, solarRotFreq, alpha, rH, noOfLonPoints
+#         )
+#
+#     # Calculate observational component of cost function
+#     for r in range(len(radObs)):
+#         if r == 0:
+#             # Extract required variables for current observation
+#             obsRadReq = int(radObs[0])
+#             nrUp = int(nRadObs[0])
+#
+#             # Calculate the components of the observational component of cost function
+#             innov = d[0:nrUp] - H[0:nrUp, :].dot(dx[obsRadReq, :])
+#             Rinv = np.linalg.pinv(R[0:nrUp, 0:nrUp])
+#
+#             # Calculate observational component of cost function for FIRST observation
+#             costFuncObs = 0.5 * np.transpose(innov).dot(Rinv).dot(innov)
+#         else:
+#             # Extract required variables for current observation
+#             obsRadReq = int(radObs[r])
+#             nrDown = int(nRadObs[r - 1])
+#             nrUp = int(nRadObs[r])
+#
+#             # Calculate the components of the observational component of cost function
+#             innov = d[nrDown:nrUp] - H[nrDown:nrUp, :].dot(dx[obsRadReq, :])
+#             Rinv = np.linalg.pinv(R[nrDown:nrUp, nrDown:nrUp])
+#
+#             # Add current observational component to costFuncobs to build the sum
+#             costFuncObs = costFuncObs + 0.5 * np.transpose(innov).dot(Rinv).dot(innov)
+#
+#     # Add together the two components of the cost function
+#     costFunc = costFuncBack + costFuncObs
+#
+#     # Print the cost function's components values and cost function's value
+#     if printCF:
+#         print(f'Precond. Jb = {costFuncBack}')
+#         print(f'Precond. Jo = {costFuncObs}')
+#         print(f'Precond. CostFunc = {costFunc}')
+#
+#     return costFunc
 
 
 def makeGradCGNoLat(
@@ -1119,6 +1499,510 @@ def makeGradCGNoLat(
     return gradJout
 
 
+def calcNonlinCostFuncPrecond(
+    chi, chiB, R, H, v, y, radObs, nRadObs, printCF=False
+):
+    #################################################################
+    # Function to calculate the cost function and print value
+    #################################################################
+
+    # Initialise variables
+    costFuncObs = 0
+
+    # Calculate background component of cost function
+    # backDiff = x[0, :] - xb
+    # Binv = np.linalg.pinv(B)
+    # costFuncBack = np.transpose(backDiff).dot(Binv).dot(backDiff)
+    costFuncBack = 0.5 * np.transpose(chi - chiB).dot(chi - chiB)
+
+    # Calculate observational component of cost function
+    for r in range(len(radObs)):
+        if r == 0:
+            # Extract required variables for current observation
+            obsRadReq = int(radObs[0])
+            nrUp = int(nRadObs[0])
+
+            # Calculate the components of the observational component of cost function
+            innov = y[0:nrUp] - H[0:nrUp, :].dot(v[obsRadReq, :])
+            Rinv = np.linalg.pinv(R[0:nrUp, 0:nrUp])
+
+            # Calculate observational component of cost function for FIRST observation
+            costFuncObs = 0.5 * np.transpose(innov).dot(Rinv).dot(innov)
+        else:
+            # Extract required variables for current observation
+            obsRadReq = int(radObs[r])
+            nrDown = int(nRadObs[r - 1])
+            nrUp = int(nRadObs[r])
+
+            # Calculate the components of the observational component of cost function
+            innov = y[nrDown:nrUp] - H[nrDown:nrUp, :].dot(v[obsRadReq, :])
+            Rinv = np.linalg.pinv(R[nrDown:nrUp, nrDown:nrUp])
+
+            # Add current observational component to costFuncobs to build the sum
+            costFuncObs = costFuncObs + (
+                    0.5 * np.transpose(innov).dot(Rinv).dot(innov)
+            )
+
+    # Add together the two components of the cost function
+    costFunc = costFuncBack + costFuncObs
+
+    # Print the cost function's components values and cost function's value
+    if printCF:
+        print(f'Jb = {costFuncBack}')
+        print(f'Jo = {costFuncObs}')
+        print(f'costFunc = {costFunc}')
+
+    return costFunc
+
+
+def calcCostFuncPrecond(
+        chi, chiB, Bhalf, R, H, xNonlin, d, radObs, nRadObs,
+        r, rH, deltaRrs, deltaPhi, alpha, solarRotFreq,
+        noOfRadPoints, noOfLonPoints, printCF=False, useLogTrans=False
+):
+    #################################################################
+    # Function to calculate the cost function and print value
+    #################################################################
+    # Initialise variables
+    costFuncObs = 0
+
+    # Calculate background component of cost function
+    costFuncBack = 0.5 * np.transpose(chi - chiB).dot(chi - chiB)
+
+    # Initialise dx for use in observation part of cost function
+    dx = np.zeros((noOfRadPoints, noOfLonPoints))
+    if useLogTrans:
+        e_zi = xNonlin[0, :] - 200
+        dx[0, :] = np.multiply(e_zi, Bhalf.dot(chi))
+    else:
+        dx[0, :] = Bhalf.dot(chi)
+    # plt.plot(range(noOfLonPoints), dx[0, :])
+    # plt.show()
+    # Run Tangent Linear Model (TLM) using (dx = Bhalf*chi)
+    for rIndex in range(1, noOfRadPoints):
+        dx[rIndex, :] = TLMRadNoLat(
+            dx[rIndex - 1, :], xNonlin[rIndex - 1, :], r[rIndex - 1], rIndex - 1,
+            deltaRrs, deltaPhi, solarRotFreq, alpha, rH, noOfLonPoints
+        )
+    # plt.imshow(dx)
+    # plt.show()
+
+    # Calculate observational component of cost function
+    for r in range(len(radObs)):
+        if r == 0:
+            # Extract required variables for current observation
+            obsRadReq = int(radObs[0])
+            nrUp = int(nRadObs[0])
+
+            # Calculate the components of the observational component of cost function
+            innov = d[0:nrUp] - H[0:nrUp, :].dot(dx[obsRadReq, :])
+            Rinv = np.linalg.pinv(R[0:nrUp, 0:nrUp])
+
+            # Calculate observational component of cost function for FIRST observation
+            costFuncObs = 0.5 * np.transpose(innov).dot(Rinv).dot(innov)
+        else:
+            # Extract required variables for current observation
+            obsRadReq = int(radObs[r])
+            nrDown = int(nRadObs[r - 1])
+            nrUp = int(nRadObs[r])
+
+            # Calculate the components of the observational component of cost function
+            innov = d[nrDown:nrUp] - H[nrDown:nrUp, :].dot(dx[obsRadReq, :])
+            Rinv = np.linalg.pinv(R[nrDown:nrUp, nrDown:nrUp])
+
+            # Add current observational component to costFuncobs to build the sum
+            costFuncObs = costFuncObs + (0.5 * np.transpose(innov).dot(Rinv).dot(innov))
+
+    # Add together the two components of the cost function
+    costFunc = costFuncBack + costFuncObs
+
+    # If required, print the cost function's components values and cost function's value
+    if printCF:
+        print(f'Jb = {costFuncBack}')
+        print(f'Jo = {costFuncObs}')
+        print(f'costFunc = {costFunc}')
+
+    return costFunc
+
+
+def calcCostFuncPrecond2(
+        chi, xb, Bhalf, R, H, y, radObs, nRadObs,
+        r, rH, deltaRrs, deltaPhi, alpha, solarRotFreq,
+        noOfRadPoints, noOfLonPoints, printCF=False, useLogTrans=False
+):
+    #################################################################
+    # Function to calculate the cost function and print value
+    #################################################################
+    # Initialise variables
+    costFuncObs = 0
+
+    # Calculate background component of cost function
+    costFuncBack = 0.5 * np.transpose(chi).dot(chi)
+
+    # Initialise x for use in observation part of cost function
+    x = np.zeros((noOfRadPoints, noOfLonPoints))
+    x[0, :] = xb + Bhalf.dot(chi)
+
+    # Run forward model
+    for rIndex in range(1, noOfRadPoints):
+        prevRadCoord = rIndex - 1
+        vPrevRad = x[prevRadCoord, :]
+        prevRad = r[prevRadCoord]
+
+        x[rIndex, :] = forwardRadModelNoLat(
+            vPrevRad, x[0, :], prevRad, prevRadCoord, deltaRrs, deltaPhi,
+            solarRotFreq, alpha, rH, noOfLonPoints
+        )
+
+    # plt.imshow(dx)
+    # plt.show()
+
+    # Calculate observational component of cost function
+    for r in range(len(radObs)):
+        if r == 0:
+            # Extract required variables for current observation
+            obsRadReq = int(radObs[0])
+            nrUp = int(nRadObs[0])
+
+            # Calculate the components of the observational component of cost function
+            innov = y[0:nrUp] - H[0:nrUp, :].dot(x[obsRadReq, :])
+            Rinv = np.linalg.pinv(R[0:nrUp, 0:nrUp])
+
+            # Calculate observational component of cost function for FIRST observation
+            costFuncObs = 0.5 * np.transpose(innov).dot(Rinv).dot(innov)
+        else:
+            # Extract required variables for current observation
+            obsRadReq = int(radObs[r])
+            nrDown = int(nRadObs[r - 1])
+            nrUp = int(nRadObs[r])
+
+            # Calculate the components of the observational component of cost function
+            innov = y[nrDown:nrUp] - H[nrDown:nrUp, :].dot(x[obsRadReq, :])
+            Rinv = np.linalg.pinv(R[nrDown:nrUp, nrDown:nrUp])
+
+            # Add current observational component to costFuncobs to build the sum
+            costFuncObs = costFuncObs + (0.5 * np.transpose(innov).dot(Rinv).dot(innov))
+
+    # Add together the two components of the cost function
+    costFunc = costFuncBack + costFuncObs
+
+    # If required, print the cost function's components values and cost function's value
+    if printCF:
+        print(f'Jb = {costFuncBack}')
+        print(f'Jo = {costFuncObs}')
+        print(f'costFunc = {costFunc}')
+
+    return costFunc
+
+
+def makeGradCGPrecond(
+        chi, chiB, Bhalf, R, H, xNonLin, d, radObs, nRadObs,
+        r, rH, deltaR, deltaPhi, alpha, solarRotFreq,
+        noOfRadPoints, noOfLonPoints, printCF=False, useLogTrans=False
+):
+    ##############################################################################
+    # Function that make the gradient of the cost function, for use within the
+    # minimisation algorithm
+    ###############################################################################
+    # Define variable to hold solar wind speed
+    dx = np.zeros((noOfRadPoints, noOfLonPoints))
+
+    # # Initialise the solar wind speed variable with the background solar wind
+    # if useLogTrans:
+    #     e_zi = xNonLin[0, :] - 200
+    #     dx[0, :] = np.multiply(e_zi, Bhalf.dot(chi))
+    # else:
+    #     dx[0, :] = Bhalf.dot(chi)
+    #
+    # #vInitRad = dx[0, :] # Extract initial radius' velocity for adjoint calculations
+    #
+    # # Run TLM model
+    # for rIndex in range(1, noOfRadPoints):
+    #     #Extract radial coordinates
+    #     prevRadCoord = rIndex - 1
+    #     prevRad = r[prevRadCoord]
+    #
+    #     # Extract required state variables
+    #     xNonLinPR = xNonLin[prevRadCoord, :]
+    #     dxLinPR = dx[prevRadCoord, :]
+    #
+    #     # Run TLM
+    #     dx[rIndex, :] = TLMRadNoLat(
+    #         dxLinPR, xNonLinPR, prevRad, prevRadCoord,
+    #         deltaR, deltaPhi, solarRotFreq, alpha, rH, noOfLonPoints
+    #     )
+
+    if useLogTrans:
+        e_zi = xNonLin[0, :] - 200
+        dx[0, :] = np.multiply(e_zi, Bhalf.dot(chi))
+    else:
+        dx[0, :] = Bhalf.dot(chi)
+
+    # plt.plot(range(noOfLonPoints), xNonLin[0, :] - 200)
+    # plt.show()
+    # Run Tangent Linear Model (TLM) using (dx = Bhalf*chi)
+    for rIndex in range(1, noOfRadPoints):
+        dx[rIndex, :] = TLMRadNoLat(
+            dx[rIndex - 1, :], xNonLin[rIndex - 1, :], r[rIndex - 1], rIndex - 1,
+            deltaR, deltaPhi, solarRotFreq, alpha, rH, noOfLonPoints
+        )
+    # Initialise adjoint variable
+    dv9 = np.zeros((noOfRadPoints + 1, noOfLonPoints))
+
+    # Run adjoint model
+    for rIndex in range(noOfRadPoints - 1, -1, -1):
+        xCurrRad = xNonLin[rIndex]
+        dxCurrRad = dx[rIndex]
+
+        # Check whether current radius is an observation radius
+        if rIndex in radObs:
+            i = list(radObs).index(rIndex)
+
+            if i == 0:
+                # Extract required variables and store in dummy variables
+                nrUp = int(nRadObs[0])
+                dv9Plus1 = dv9[rIndex + 1, :]
+
+                # Calculate first term of adjoint equation by running adjoint model
+                dv9Coeff1 = adjRadNoLat(
+                    dv9Plus1, xCurrRad, r[rIndex], rIndex,
+                    deltaR, deltaPhi, solarRotFreq, alpha, rH,
+                    noOfLonPoints
+                )
+
+                # Calculate the observational addition to the adjoint equation
+                innov = d[:nrUp] - H[:nrUp, :].dot(dxCurrRad)
+                Rinv = np.linalg.pinv(R[:nrUp, :nrUp])
+                dv9Coeff2 = np.transpose(H[:nrUp, :]).dot(Rinv).dot(innov)
+
+                # Sum the two terms to complete update the adjoint variable
+                dv9[rIndex, :] = dv9Coeff1 + dv9Coeff2
+
+            else:
+                # Extract required variables and store in dummy variables
+                nrDown = int(nRadObs[i - 1])
+                nrUp = int(nRadObs[i])
+                dv9Plus1 = dv9[rIndex + 1, :]
+
+                # Calculate first term of adjoint equation by running adjoint model
+                dv9Coeff1 = adjRadNoLat(
+                    dv9Plus1, xCurrRad, r[rIndex], rIndex,
+                    deltaR, deltaPhi, solarRotFreq, alpha, rH,
+                    noOfLonPoints
+                )
+
+                # Calculate the observational addition to the adjoint equation
+                innov = d[nrDown:nrUp] - H[nrDown:nrUp, :].dot(dxCurrRad)
+                Rinv = np.linalg.pinv(R[nrDown:nrUp, nrDown:nrUp])
+                dv9Coeff2 = np.transpose(H[nrDown:nrUp, :]).dot(Rinv).dot(innov)
+
+                # Sum the two terms to complete update the adjoint variable
+                dv9[rIndex, :] = dv9Coeff1 + dv9Coeff2
+
+        else:
+            # If no observations are at the current radius, run the adjoint model
+            # to get previous adjoint variable solution
+            # Extract required adjoint variable
+            dv9Plus1 = dv9[rIndex + 1, :]
+
+            # Run adjoint model
+            dv9[rIndex, :] = adjRadNoLat(
+                dv9Plus1, xCurrRad, r[rIndex], rIndex,
+                deltaR, deltaPhi, solarRotFreq, alpha, rH,
+                noOfLonPoints
+            )
+
+    # Calculate the gradient of the cost function
+    # Calculate component of gradient associated with the background states
+    # backDiff = xb - xBIter0
+    # Binv = np.linalg.pinv(B)
+    # gradJcoeff1 = Binv.dot(backDiff)
+    #
+    # # Calculate final adjoint model run
+    # gradJcoeff2 = adjRadNoLat(
+    #     dv9[1, :], vInitRad, r[0], 0,
+    #     deltaR, deltaPhi, solarRotFreq, alpha, rH,
+    #     noOfLonPoints
+    # )
+    #
+    # # Calculate gradient of cost function
+    # gradJ = np.transpose(np.matrix(gradJcoeff1 - gradJcoeff2))
+
+    # Multiply adjoint variable at 0 radius coord by transpose(Bhalf)
+    if useLogTrans:
+        gradJterm = np.multiply(
+            np.array([e_zi for i in range(noOfLonPoints)]), np.transpose(Bhalf)
+        ).dot(dv9[0, :])
+        #print(f"ezi={np.array([e_zi for i in range(noOfLonPoints)]), np.transpose(Bhalf)}")
+        #print(f"dv9 = {dv9[0, :]}")
+    else:
+        gradJterm = np.transpose(Bhalf).dot(dv9[0, :])
+
+    # print(f"Diff={gradJterm - np.transpose(Bhalf).dot(dv9[0, :])}")
+
+    # Calculate gradient of J as chi - Bhalf^T lambda_0
+    gradJ = chi - chiB - gradJterm
+
+    #print(np.transpose(gradJ).dot(gradJ))
+    return gradJ
+
+
+def makeGradCGPrecond2(
+        chi, xb, Bhalf, R, H, y, radObs, nRadObs,
+        r, rH, deltaR, deltaPhi, alpha, solarRotFreq,
+        noOfRadPoints, noOfLonPoints, printCF=False, useLogTrans=False
+):
+    ##############################################################################
+    # Function that make the gradient of the cost function, for use within the
+    # minimisation algorithm
+    ###############################################################################
+    # Define variable to hold solar wind speed
+    x = np.zeros((noOfRadPoints, noOfLonPoints))
+    x[0, :] = xb + Bhalf.dot(chi)
+    # # Initialise the solar wind speed variable with the background solar wind
+    # if useLogTrans:
+    #     e_zi = xNonLin[0, :] - 200
+    #     dx[0, :] = np.multiply(e_zi, Bhalf.dot(chi))
+    # else:
+    #     dx[0, :] = Bhalf.dot(chi)
+    #
+    # #vInitRad = dx[0, :] # Extract initial radius' velocity for adjoint calculations
+    #
+    # # Run TLM model
+    # for rIndex in range(1, noOfRadPoints):
+    #     #Extract radial coordinates
+    #     prevRadCoord = rIndex - 1
+    #     prevRad = r[prevRadCoord]
+    #
+    #     # Extract required state variables
+    #     xNonLinPR = xNonLin[prevRadCoord, :]
+    #     dxLinPR = dx[prevRadCoord, :]
+    #
+    #     # Run TLM
+    #     dx[rIndex, :] = TLMRadNoLat(
+    #         dxLinPR, xNonLinPR, prevRad, prevRadCoord,
+    #         deltaR, deltaPhi, solarRotFreq, alpha, rH, noOfLonPoints
+    #     )
+
+    # if useLogTrans:
+    #     e_zi = xNonLin[0, :] - 200
+    #     dx[0, :] = np.multiply(e_zi, Bhalf.dot(chi))
+    # else:
+    #     dx[0, :] = Bhalf.dot(chi)
+
+    # plt.plot(range(noOfLonPoints), xNonLin[0, :] - 200)
+    # plt.show()
+    for rIndex in range(1, noOfRadPoints):
+        prevRadCoord = rIndex - 1
+        vPrevRad = x[prevRadCoord, :]
+        prevRad = r[prevRadCoord]
+
+        x[rIndex, :] = forwardRadModelNoLat(
+            vPrevRad, x[0, :], prevRad, prevRadCoord, deltaR, deltaPhi,
+            solarRotFreq, alpha, rH, noOfLonPoints
+        )
+
+    # Initialise adjoint variable
+    dv9 = np.zeros((noOfRadPoints + 1, noOfLonPoints))
+
+    # Run adjoint model
+    for rIndex in range(noOfRadPoints - 1, -1, -1):
+        xCurrRad = x[rIndex]
+        # dxCurrRad = dx[rIndex]
+
+        # Check whether current radius is an observation radius
+        if rIndex in radObs:
+            i = list(radObs).index(rIndex)
+
+            if i == 0:
+                # Extract required variables and store in dummy variables
+                nrUp = int(nRadObs[0])
+                dv9Plus1 = dv9[rIndex + 1, :]
+
+                # Calculate first term of adjoint equation by running adjoint model
+                dv9Coeff1 = adjRadNoLat(
+                    dv9Plus1, xCurrRad, r[rIndex], rIndex,
+                    deltaR, deltaPhi, solarRotFreq, alpha, rH,
+                    noOfLonPoints
+                )
+
+                # Calculate the observational addition to the adjoint equation
+                innov = y[:nrUp] - H[:nrUp, :].dot(xCurrRad)
+                Rinv = np.linalg.pinv(R[:nrUp, :nrUp])
+                dv9Coeff2 = np.transpose(H[:nrUp, :]).dot(Rinv).dot(innov)
+
+                # Sum the two terms to complete update the adjoint variable
+                dv9[rIndex, :] = dv9Coeff1 + dv9Coeff2
+
+            else:
+                # Extract required variables and store in dummy variables
+                nrDown = int(nRadObs[i - 1])
+                nrUp = int(nRadObs[i])
+                dv9Plus1 = dv9[rIndex + 1, :]
+
+                # Calculate first term of adjoint equation by running adjoint model
+                dv9Coeff1 = adjRadNoLat(
+                    dv9Plus1, xCurrRad, r[rIndex], rIndex,
+                    deltaR, deltaPhi, solarRotFreq, alpha, rH,
+                    noOfLonPoints
+                )
+
+                # Calculate the observational addition to the adjoint equation
+                innov = y[nrDown:nrUp] - H[nrDown:nrUp, :].dot(xCurrRad)
+                Rinv = np.linalg.pinv(R[nrDown:nrUp, nrDown:nrUp])
+                dv9Coeff2 = np.transpose(H[nrDown:nrUp, :]).dot(Rinv).dot(innov)
+
+                # Sum the two terms to complete update the adjoint variable
+                dv9[rIndex, :] = dv9Coeff1 + dv9Coeff2
+
+        else:
+            # If no observations are at the current radius, run the adjoint model
+            # to get previous adjoint variable solution
+            # Extract required adjoint variable
+            dv9Plus1 = dv9[rIndex + 1, :]
+
+            # Run adjoint model
+            dv9[rIndex, :] = adjRadNoLat(
+                dv9Plus1, xCurrRad, r[rIndex], rIndex,
+                deltaR, deltaPhi, solarRotFreq, alpha, rH,
+                noOfLonPoints
+            )
+
+    # Calculate the gradient of the cost function
+    # Calculate component of gradient associated with the background states
+    # backDiff = xb - xBIter0
+    # Binv = np.linalg.pinv(B)
+    # gradJcoeff1 = Binv.dot(backDiff)
+    #
+    # # Calculate final adjoint model run
+    # gradJcoeff2 = adjRadNoLat(
+    #     dv9[1, :], vInitRad, r[0], 0,
+    #     deltaR, deltaPhi, solarRotFreq, alpha, rH,
+    #     noOfLonPoints
+    # )
+    #
+    # # Calculate gradient of cost function
+    # gradJ = np.transpose(np.matrix(gradJcoeff1 - gradJcoeff2))
+
+    # Multiply adjoint variable at 0 radius coord by transpose(Bhalf)
+    # if useLogTrans:
+    #     gradJterm = np.multiply(
+    #         np.array([e_zi for i in range(noOfLonPoints)]), np.transpose(Bhalf)
+    #     ).dot(dv9[0, :])
+    #     #print(f"ezi={np.array([e_zi for i in range(noOfLonPoints)]), np.transpose(Bhalf)}")
+    #     #print(f"dv9 = {dv9[0, :]}")
+    # else:
+    #     gradJterm = np.transpose(Bhalf).dot(dv9[0, :])
+    gradJterm = np.transpose(Bhalf).dot(dv9[0, :])
+    # print(f"Diff={gradJterm - np.transpose(Bhalf).dot(dv9[0, :])}")
+
+    # Calculate gradient of J as chi - Bhalf^T lambda_0
+    gradJ = chi - gradJterm
+
+    #print(np.transpose(gradJ).dot(gradJ))
+    return gradJ
+
+
 def calcStateObsRMSE(state, obs):
     # Calculate squared differences between state and obs.
     stateObsDiff = state - obs
@@ -1182,7 +2066,7 @@ def plotSWspeed(
     # plt.tight_layout()
     saveFileLoc = os.path.join(outputDir, f'SWspeed{spacecraftName}_MJDstart{int(currMJD)}.pdf')
     plt.savefig(saveFileLoc)
-    # plt.show()
+    plt.show()
 
     return fig, ax
 

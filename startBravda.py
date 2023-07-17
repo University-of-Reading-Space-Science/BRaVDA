@@ -9,7 +9,8 @@ import runBravdaExport as rbe
 
 
 def bravdafunction(forecastdate, obsToAssim = 'C', usecustomens = True,
-                   runoutputdir = '', plottimeseries = True, corona = 'MAS'):
+                   runoutputdir = '', plottimeseries = True, corona = 'MAS',
+                   precondState=False, useLogTrans=False):
     rdm.seed(20000)
     #################################
     # Data to be provided by user
@@ -76,7 +77,7 @@ def bravdafunction(forecastdate, obsToAssim = 'C', usecustomens = True,
     # by a space indicating the percentage of background (0,1]
     # or constant>0 for STERA, STERB and ACE [even if not assim.])
     setupOfR = 'B 0.1 0.1 0.1'
-    
+
     ############################################################################
     # Set up tolerance in minimisation function in DA
     # gtol for minimisation algorithm.
@@ -90,10 +91,15 @@ def bravdafunction(forecastdate, obsToAssim = 'C', usecustomens = True,
     makePlots = plottimeseries
 
     rbe.runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR, initDate, noOfConsecWindows, noOfMASens,
-                  locRad, gTol, makePlots, usecustomens=usecustomens)
+                  locRad, gTol, makePlots, usecustomens=usecustomens, precondState=precondState, useLogTrans=useLogTrans)
 
 if __name__=="__main__":
     # Specify forecastDate
     fcDate = datetime.datetime(2011, 7, 30)
+    precondState = True
+    useLogTrans = False
     # Run BRaVDA function
-    bravdafunction(fcDate, obsToAssim=["STERA", "STERB"], usecustomens=False, runoutputdir='', plottimeseries=True, corona='MAS')
+    bravdafunction(
+        fcDate, obsToAssim=["STERA", "STERB"], usecustomens=False, runoutputdir='', plottimeseries=True,
+        corona='MAS', precondState=precondState, useLogTrans=useLogTrans
+    )
