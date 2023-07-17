@@ -177,6 +177,8 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
     deltaPhiDeg = float(360.0 / noOfLonPoints)
     deltaPhi = deltaPhiDeg * (np.pi / 180.0)
     totalLonPoints = noOfLonPoints * noOfWindows
+    priorTotalVar = np.zeros(noOfWindows)
+    postTotalVar = np.zeros(noOfWindows)
 
     # Radial constants (rS = solar radius)
     rS = 700000  # 695700
@@ -363,20 +365,9 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
         #############################################################################
         # Generate all observations
         #############################################################################
-        # if useLogTrans:
-        #     obsCompDf = pd.DataFrame(columns=["y", "yLog", "yPlot", "obsToBeTaken", "noOfObs"])
-        # else:
         obsCompDf = pd.DataFrame(columns=["y", "yPlot", "obsToBeTaken", "noOfObs"])
 
         for obsName in obsFileDf.index:
-            # if useLogTrans:
-            #     fObs = obsFileDf.loc[obsName]["obsFilePath"]
-            #     yTemp, yLogTemp, yTempPlot, obsToBeTakenTemp, noOfObsTemp = bme.makeObs(
-            #         fObs, fileMJD[w], currMJD[w], noOfLonPoints,
-            #         lowerCutOff=0, upperCutOff=5000, useLogTrans=useLogTrans
-            #     )
-            #     obsCompDf.loc[obsName] = [yTemp, yLogTemp, yTempPlot, obsToBeTakenTemp, noOfObsTemp]
-            # else:
             fObs = obsFileDf.loc[obsName]["obsFilePath"]
             yTemp, yTempPlot, obsToBeTakenTemp, noOfObsTemp = bme.makeObs(
                 fObs, fileMJD[w], currMJD[w], noOfLonPoints,
@@ -386,9 +377,6 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
 
         # Place all obs into a dictionary
         obsCompDict = obsCompDf.to_dict()["y"]
-
-        # if useLogTrans:
-        #     obsLogCompDict = obsCompDf.to_dict()["yLog"]
 
         # Set up dictionaries containing the number of obs and which are to be taken
         nObsDict = obsCompDf.to_dict()["noOfObs"]
@@ -412,10 +400,6 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
         H = [] # Obs. operator
         R = []  # Obs. error covar. for all obs. to be assimilated
 
-        # if useLogTrans:
-        #     yLog = []
-        #     Rlog = []
-
         #Initialise radObs and nRadObs
         radObs = []
         nRadObs = []
@@ -424,17 +408,8 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
         for obsName in obsToAssim:
             radObs, nRadObs = bme.extractRadObs(obsName, radCoordDict, nObsDict, radObs, nRadObs)
 
-            # if useLogTrans:
-            #     y, H, R, yLog, Rlog = bme.makeObsForDA(
-            #         y, H, R, obsCompDict, obsName, radCoordDict, lonCoordDict,
-            #         obsUncDf, obsToBeTakenDict, nObsDict, vPrior[w, :, :], noOfLonPoints,
-            #         useLogTrans=useLogTrans, yLogDict=obsLogCompDict, yLog=yLog, Rlog=Rlog
-            #     )
-            # else:
-            y, H, R = bme.makeObsForDA(
-                y, H, R, obsCompDict, obsName, radCoordDict, lonCoordDict,
-                obsUncDf, obsToBeTakenDict, nObsDict, vPrior[w, :, :], noOfLonPoints
-            )
+            y, H, R = bme.makeObsForDA(y, H, R, obsCompDict, obsName, radCoordDict, lonCoordDict, obsUncDf,
+                                       obsToBeTakenDict, nObsDict, vPrior[w, :, :], noOfLonPoints)
 
         # Extract total number of observations
         noOfObsTotal = int(nRadObs[-1])
@@ -444,15 +419,16 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
         for obsName in obsCompDf.index:
             print(f'len(y_{obsName}) = {len(obsCompDf.loc[obsName]["y"])}')
         print(f'Total number of observations: {noOfObsTotal}')
-        preCondState2 = True
+
         #############################################################################
         # Data Assimilation
         #############################################################################
-        if preCondState2:
+        if precondState:
             # Initialise variables to hold state before and after DA
             vIter = np.zeros((2, noOfRadPoints, noOfLonPoints))
             forwardStateIter = np.zeros((2, noOfRadPoints, noOfLonPoints))
             costFuncVal = np.zeros(2)
+            B = np.transpose(Bhalf).dot(Bhalf)
 
             # Set the initial solar wind speed as equal to the prior solar wind speed
             vIter[0, 0, :] = np.copy(vPrior[w, 0, :])
@@ -473,7 +449,7 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
 
             # Calculate cost function at initial iteration
             costFuncVal[0] = bme.calcCostFuncNoLat(
-                np.transpose(Bhalf).dot(Bhalf), R, H, forwardStateIter[0, 0, :], xb, vIter[0, :, :], y,
+                B, R, H, forwardStateIter[0, 0, :], xb, vIter[0, :, :], y,
                 radObs, nRadObs
             )
 
@@ -484,14 +460,17 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
             # Minimise the cost function
             ###########################################################################################
             # Perform minimisation of cost function to obtain analysis state
-            resOpt = scipy.optimize.minimize(
-                fun=bme.calcCostFuncPrecond2, x0=chi,
-                args=(
-                    xb, Bhalf, R, H, y, radObs, nRadObs,
-                    r, rH, deltaRrs, deltaPhi, alpha, solarRotFreq,
-                    noOfRadPoints, noOfLonPoints, False, False
-                ), method='BFGS', jac=bme.makeGradCGPrecond2, options={'gtol': gTol, 'disp': True}
-            )
+            if useLogTrans:
+                pass
+            else:
+                resOpt = scipy.optimize.minimize(
+                    fun=bme.calcCostFuncPrecond, x0=chi,
+                    args=(
+                        xb, Bhalf, R, H, y, radObs, nRadObs,
+                        r, rH, deltaRrs, deltaPhi, alpha, solarRotFreq,
+                        noOfRadPoints, noOfLonPoints, False, False
+                    ), method='BFGS', jac=bme.makeGradCGPrecond, options={'gtol': gTol, 'disp': True}
+                )
 
             ###########################################################################
             # Extract the  analysis solar wind speed in both speed matrix and state vector form
@@ -513,397 +492,19 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
             # Calculate cost function after DA analysis and store in cost function variable
             ###################################################################################
             costFuncVal[1] = bme.calcCostFuncNoLat(
-                np.transpose(Bhalf).dot(Bhalf), R, H, forwardStateIter[1, 0, :], xb, vIter[1, :, :], y,
+                B, R, H, forwardStateIter[1, 0, :], xb, vIter[1, :, :], y,
                 radObs, nRadObs
             )
-        elif precondState:
-            print("In precondState loop")
-            outerLoopIter = 5
-            innerLoopIter = 1
 
-            # Initialise variables to hold state before and after DA
-            vIter = np.zeros((2, noOfRadPoints, noOfLonPoints))
-            vOuterIter = np.zeros((outerLoopIter + 1, noOfRadPoints, noOfLonPoints))
-            totalVarOuter = np.zeros(outerLoopIter)
-            innov = np.zeros((outerLoopIter, noOfObsTotal))
-            chiIter = np.zeros((outerLoopIter + 1, noOfLonPoints))
-            chiB = np.zeros((outerLoopIter + 1, noOfLonPoints))
-            costFuncInnerVal = np.zeros(innerLoopIter + 1)
-            costFuncOuterVal = np.zeros(outerLoopIter + 1)
+            # Calculate analysis covariance matrix
+            bhT = B.dot(np.transpose(H))
+            hbhT = H.dot(bhT)
+            invPart = np.linalg.pinv(hbhT + R)
+            K = bhT.dot(invPart)
+            A = (np.identity(noOfLonPoints) - K.dot(H)).dot(B)
 
-            # Set the initial solar wind speed as equal to the prior solar wind speed
-            vIter[0, :, :] = np.copy(vPrior[w, :, :])
-            vOuterIter[0, 0, :] = np.copy(vPrior[w, 0, :])
-
-            if useLogTrans:
-                vLogIter = np.zeros((outerLoopIter + 1, noOfRadPoints, noOfLonPoints))
-                vLogIter[0, 0, :] = np.copy(np.log(vOuterIter[0, 0, :] - 200))
-            ##########################TRANSFORM TO LOG SPACE!!!!!!!!!
-            # vPriorLogSpace = np.log(vPrior[w, :, :] - 200)
-            ###########################################################
-
-            for outer in range(outerLoopIter):
-                printCost = False
-                ###################################################################
-                # Run outer loop
-                ###################################################################
-                # vOuterIter is the state we linearise around
-                if outer == 0:
-                    for rIndex in range(1, noOfRadPoints):
-                        vOuterIter[outer, rIndex, :] = bme.forwardRadModelNoLat(
-                            vOuterIter[outer, rIndex - 1, :], vOuterIter[outer, 0, :], r[rIndex - 1], rIndex - 1,
-                            deltaRrs, deltaPhi, solarRotFreq, alpha, rH, noOfLonPoints
-                        )
-
-                ################################################################
-                # Change vOuterIter from velocity space to ln(v - 200) space
-                ################################################################
-
-
-                # Initialise chi
-                chi = np.zeros((innerLoopIter + 1, noOfLonPoints))
-
-                #vB = vOuterIter[outer, 0, :] + Bhalf.dot(chiB[outer, :])
-                if useLogTrans:
-                    vLogIter[outer, 0, :] = np.log(vOuterIter[outer, 0, :] - 200)
-                    print(f"vLogPrior = {vLogPrior[w, 0, :].max()}")
-                    vPriCalc = vLogIter[outer, 0, :] + BlogHalf.dot(chiB[outer, :])
-                    print(f"vOuterIter[{outer}] + Bhalf*(chiB) = {np.abs(vPriCalc).max()}")
-
-                    print(f"vPrior = {np.abs(vPrior[w, 0, :]).max()}")
-                    vPriCalc = 200 + np.exp(vLogIter[outer, 0, :] + BlogHalf.dot(chiB[outer, :]))
-                        # 200 + np.multiply(vOuterIter[outer, 0, :] - 200, np.exp(BlogHalf.dot(chiB[outer, :])))
-                    print(
-                        f"vOuterIter[{outer}] + Bhalf*(chiB) = {np.abs(vPriCalc).max()}")
-                else:
-                    print(f"vPrior = {np.abs(vPrior[w, 0, :]).max()}")
-                    vPriCalc = vOuterIter[outer, 0, :] + Bhalf.dot(chiB[outer, :])
-                    print(f"vOuterIter[{outer}] + Bhalf*(chiB) = {np.abs(vPriCalc).max()}")
-                # plt.imshow(BlogHalf)
-                # plt.show()
-
-                # Calculate non-linear cost function
-                #print("Initial non-linear cost function")
-                if outer == 0:
-                    costFuncOuterVal[outer] = bme.calcCostFuncNoLat(
-                        np.transpose(Bhalf).dot(Bhalf), R, H, vOuterIter[outer, 0, :],
-                        vPrior[w, 0, :], vOuterIter[outer, :, :], y, radObs, nRadObs
-                    )
-
-                    # bme.calcNonlinCostFuncPrecond(
-                    #     chi[0, :], chiB[outer, :], R, H, vOuterIter[outer, :, :],
-                    #     y, radObs, nRadObs, printCF=printCost
-                    # )
-
-                # Initialise innovation vector
-                # if useLogTrans:
-                #     innov = bme.calcInnovLog(
-                #         y, H, vLogIter[outer, :, :], radObs, nRadObs,
-                #         r, deltaRrs, deltaPhi, solarRotFreq, alpha, rH, noOfRadPoints, noOfLonPoints
-                #     )
-                # else:
-                innov[outer, :] = bme.calcInnov(y, H, vOuterIter[outer, :, :], radObs, nRadObs)
-                print(obsPosDf.loc["ACE"].keys())
-                # fig = plt.figure()
-                # plt.plot(range(len(y)), innov[outer - 1, :], color='r')
-                # plt.plot(range(len(y)), innov[outer, :])
-                # plt.plot(range(len(y)), y-vOuterIter[outer, obsPosDf.loc["ACE"]["radCoord"][0], :], color='m')
-                # plt.show()
-                # Initialise variables for the CG algorithm
-                residuals = np.zeros((innerLoopIter + 1, noOfLonPoints))
-                searchDir = np.zeros((innerLoopIter + 1, noOfLonPoints))
-                a_j = np.zeros(innerLoopIter)
-                b_j = np.zeros(innerLoopIter)
-
-                # Initialise variables for the Lanczos algorithm
-                q_j = np.zeros((innerLoopIter, noOfLonPoints))
-                alpha_j = np.zeros(innerLoopIter)
-                beta_j = np.zeros(innerLoopIter)
-
-                for inner in range(innerLoopIter):
-                    print(f"Loop {outer}.{inner}")
-                    # Use CG/Lanczos algorithm to update and minimise cost function and estimate
-                    # the eigenvalues/eigenvectors of the Hessian
-                    # if inner == 0:
-                    #     # Calculate preconditioned cost function
-                    #     if useLogTrans:
-                    #         costFuncInnerVal[0] = bme.calcCostFuncPrecond(
-                    #             chi[0, :], chiB[outer, :], Bhalf, R, H, vOuterIter[outer, :, :], innov[outer, :], radObs,
-                    #             nRadObs, r, rH, deltaR, deltaPhi, alpha, solarRotFreq, noOfRadPoints, noOfLonPoints,
-                    #             printCF=printCost, useLogTrans=useLogTrans
-                    #         )
-                    #
-                    #         # Calculate gradient at chi=0
-                    #         gradient = bme.makeGradCGPrecond(
-                    #             chi[0, :], chiB[outer, :], Bhalf, R, H, vOuterIter[outer, :, :], innov[outer, :], radObs,
-                    #             nRadObs, r, rH, deltaR, deltaPhi, alpha, solarRotFreq, noOfRadPoints, noOfLonPoints,
-                    #             useLogTrans=useLogTrans
-                    #         )
-                    #     else:
-                    #         costFuncInnerVal[0] = bme.calcCostFuncPrecond(
-                    #             chi[0, :], chiB[outer, :], Bhalf, R, H, vOuterIter[outer, :, :], innov[outer, :], radObs, nRadObs,
-                    #             r, rH, deltaR, deltaPhi, alpha, solarRotFreq, noOfRadPoints, noOfLonPoints,
-                    #             printCF=printCost
-                    #         )
-                    #
-                    #         # Calculate gradient at chi=0
-                    #         gradient = bme.makeGradCGPrecond(
-                    #             chi[0, :], chiB[outer, :], Bhalf, R, H, vOuterIter[outer, :, :], innov[outer, :], radObs, nRadObs,
-                    #             r, rH, deltaR, deltaPhi, alpha, solarRotFreq, noOfRadPoints, noOfLonPoints
-                    #         )
-
-                        # Set r_0 = p_0 = -grad(J(0))
-                        # Check chi is zero for first iteration
-                        #assert chi[0, :].all() == 0
-
-                    # Minimise cost function using fmin_cg
-                    if useLogTrans:
-                        chiIter[outer + 1, :] = scipy.optimize.minimize(
-                            fun=bme.calcCostFuncPrecond, x0=chi[0, :],
-                            args=(
-                                chiB[outer, :], BlogHalf, R, H, vOuterIter[outer, :, :], innov[outer, :], radObs,
-                                nRadObs,
-                                r, rH, deltaR, deltaPhi, alpha, solarRotFreq,
-                                noOfRadPoints, noOfLonPoints, False, useLogTrans
-                            ), method='CG', jac=bme.makeGradCGPrecond, options={'gtol': gTol, 'disp': True}
-                        ).x
-                        # chiIter[outer + 1, :] = lsm.fmin_cg(
-                        #     f=bme.calcCostFuncPrecond, x0=chi[0, :], fprime=bme.makeGradCGPrecond, maxiter=1,
-                        #     args=(
-                        #         chiB[outer, :], BlogHalf, R, H, vOuterIter[outer, :, :], innov[outer, :], radObs, nRadObs,
-                        #         r, rH, deltaR, deltaPhi, alpha, solarRotFreq,
-                        #         noOfRadPoints, noOfLonPoints, False, useLogTrans
-                        #     )
-                        # )
-                    else:
-                        chiIter[outer+1, :] = lsm.fmin_cg(
-                            f=bme.calcCostFuncPrecond, x0=chi[0, :], fprime=bme.makeGradCGPrecond,
-                            args=(
-                                chiB[outer, :], Bhalf, R, H, vOuterIter[outer, :, :], innov[outer, :], radObs, nRadObs,
-                                r, rH, deltaR, deltaPhi, alpha, solarRotFreq,
-                                noOfRadPoints, noOfLonPoints, False
-                            )
-                        )
-
-                    #fmin_cg(f, x0, fprime=gradf, args=args)
-                    #     # Set first search direction and residual as -gradient(chi=0)
-                    #     residuals[0, :] = -gradient
-                    #     searchDir[0, :] = -gradient
-                    #
-                    #     print(f"pk^T * gradJ = {np.transpose(searchDir[0, :]).dot(gradient)}")
-                    #     # Calculate a0 (step length for first step)
-                    #     resLS = scipy.optimize.line_search(
-                    #         bme.calcCostFuncPrecond, bme.makeGradCGPrecond, chi[0, :], searchDir[0, :],
-                    #         gfk=gradient, old_fval=costFuncInnerVal[0], c1=1e-4, c2=0.1, maxiter=5,
-                    #         args=(
-                    #             chiB[outer, :], Bhalf, R, H, vOuterIter[outer, :, :], innov, radObs, nRadObs,
-                    #             r, rH, deltaR, deltaPhi, alpha, solarRotFreq,
-                    #             noOfRadPoints, noOfLonPoints, False
-                    #         )
-                    #     )
-                    #     a_j[0] = resLS[0]
-                    #
-                    #     if np.isnan(a_j[0]):
-                    #         print("Ending inner loop early due to lack of convergence")
-                    #         break
-                    #     # a_j[0] = bme.lineSearchFunc(
-                    #     #     1, chi[0, :], chiB[outer, :], searchDir[0, :], residuals[0, :],
-                    #     #     vOuterIter[outer, :, :], Bhalf, innov, H, R,
-                    #     #     r, deltaRrs, deltaPhi, solarRotFreq,
-                    #     #     alpha, rH, noOfRadPoints, noOfLonPoints, radObs, nRadObs,
-                    #     #     maxIter=5, tau=0.5, tolerance=1e-4
-                    #     # )
-                    #     # resOpt = scipy.optimize.minimize(
-                    #     #     fun=bme.lineSearchFunc, x0=0,
-                    #     #     args=(
-                    #     #         chi[0, :], chiB[outer, :], searchDir[0, :], vOuterIter[outer, :, :], Bhalf, innov, H, R,
-                    #     #         r, deltaRrs, deltaPhi, solarRotFreq,
-                    #     #         alpha, rH, noOfRadPoints, noOfLonPoints, radObs, nRadObs
-                    #     #     ), options={'disp': True}
-                    #     # )
-                    #     # a_j[0] = np.copy(resOpt.x)
-                    #     # Calculate new state vector
-                    #     chi[1, :] = chi[0, :] + (a_j[0] * searchDir[0, :])
-                    #
-                    #     costFuncInnerVal[1] = bme.calcCostFuncPrecond(
-                    #         chi[0, :], chiB[outer, :], Bhalf, R, H, vOuterIter[outer, :, :], innov, radObs, nRadObs,
-                    #         r, rH, deltaR, deltaPhi, alpha, solarRotFreq, noOfRadPoints, noOfLonPoints,
-                    #         printCF=printCost
-                    #     )
-                    #     # Calculate new residual (negative of gradient)
-                    #     gradJLin = bme.makeGradCGPrecond(
-                    #         chi[1, :], chiB[outer, :], Bhalf, R, H, vOuterIter[outer, :, :], innov, radObs, nRadObs,
-                    #         r, rH, deltaR, deltaPhi, alpha, solarRotFreq, noOfRadPoints, noOfLonPoints
-                    #     )
-                    #     residuals[1, :] = -gradJLin
-                    #
-                    #     # Calculate b_0
-                    #     num = np.transpose(residuals[1, :]).dot(residuals[1, :])
-                    #     denom = np.transpose(residuals[0, :]).dot(residuals[0, :])
-                    #     b_j[0] = num / denom
-                    #     #print(f"b_j[0] = {b_j[0]}")
-                    #     # Calculate new search direction
-                    #     searchDir[1, :] = residuals[1, :] + (b_j[0] * searchDir[0, :])
-                    #
-                    #     # Calculate Lanczos algorithm quantities
-                    #     magResid = np.sqrt(residuals[0, :].dot(residuals[0, :]))
-                    #     q_j[0, :] = residuals[0, :] / magResid
-                    #
-                    #     # Calculate alpha and beta values from CG scalars
-                    #     alpha_j[0] = 1 / a_j[0]
-                    #     beta_j[0] = np.sqrt(b_j[0]) / a_j[0]
-                    # else:
-                    #     # Calculate a_j (step length for j^th step)
-                    #     print(f"pk^T * gradJ = {np.transpose(searchDir[inner, :]).dot(gradJLin)}")
-                    #
-                    #     resLS = scipy.optimize.line_search(
-                    #         bme.calcCostFuncPrecond, bme.makeGradCGPrecond, chi[inner, :], searchDir[inner, :],
-                    #         gfk=gradJLin, old_fval=costFuncInnerVal[inner], c1=1e-4, c2=0.1, maxiter=5,
-                    #         args=(
-                    #             chiB[outer, :], Bhalf, R, H, vOuterIter[outer, :, :], innov, radObs, nRadObs,
-                    #             r, rH, deltaR, deltaPhi, alpha, solarRotFreq,
-                    #             noOfRadPoints, noOfLonPoints, False
-                    #         )
-                    #     )
-                    #     a_j[inner] = resLS[0]
-                    #     if np.isnan(a_j[inner]):
-                    #         print("Ending inner loop early due to lack of convergence")
-                    #         break
-                    #     # a_j[inner] = bme.lineSearchFunc(
-                    #     #     1, chi[inner, :], chiB[outer, :], searchDir[inner, :], residuals[inner, :],
-                    #     #     vOuterIter[outer, :, :], Bhalf, innov, H, R,
-                    #     #     r, deltaRrs, deltaPhi, solarRotFreq,
-                    #     #     alpha, rH, noOfRadPoints, noOfLonPoints, radObs, nRadObs,
-                    #     #     maxIter=5, tau=0.5, tolerance=1e-4
-                    #     # )
-                    #     # resOpt = scipy.optimize.minimize(
-                    #     #     fun=bme.lineSearchFunc, x0=0,
-                    #     #     args=(
-                    #     #         chi[inner, :], chiB[outer, :], searchDir[inner, :], vOuterIter[outer, :, :], Bhalf, innov, H, R,
-                    #     #         r, deltaRrs, deltaPhi, solarRotFreq,
-                    #     #         alpha, rH, noOfRadPoints, noOfLonPoints, radObs, nRadObs
-                    #     #     ), options={'disp': True}
-                    #     # )
-                    #     # a_j[inner] = np.copy(resOpt.x)
-                    #
-                    #     # Calculate new state vector
-                    #     chi[inner + 1, :] = chi[inner, :] + (a_j[inner] * searchDir[inner, :])
-                    #     #print(f"a_j={a_j[inner]}")
-                    #     #print(f"chi={chi[inner + 1]}")
-                    #     costFuncInnerVal[inner + 1] = bme.calcCostFuncPrecond(
-                    #         chi[inner + 1, :], chiB[outer, :], Bhalf, R, H, vOuterIter[outer, :, :], innov, radObs, nRadObs,
-                    #         r, rH, deltaR, deltaPhi, alpha, solarRotFreq, noOfRadPoints, noOfLonPoints,
-                    #         printCF=printCost
-                    #     )
-                    #     # Calculate new residual (negative of gradient)
-                    #     gradJLin = bme.makeGradCGPrecond(
-                    #         chi[inner + 1, :], chiB[outer, :], Bhalf, R, H, vOuterIter[outer, :, :], innov,
-                    #         radObs, nRadObs, r, rH, deltaR, deltaPhi, alpha, solarRotFreq,
-                    #         noOfRadPoints, noOfLonPoints
-                    #     )
-                    #     residuals[inner + 1, :] = -gradJLin
-                    #
-                    #     # Calculate b_0
-                    #     num = np.transpose(residuals[inner + 1, :]).dot(residuals[inner + 1, :])
-                    #     denom = np.transpose(residuals[inner, :]).dot(residuals[inner, :])
-                    #     b_j[inner] = num / denom
-                    #     #print(f"b_j[{inner}] = {b_j[inner]}")
-                    #
-                    #     # Calculate new search direction
-                    #     searchDir[inner + 1, :] = residuals[inner + 1, :] + (b_j[inner] * searchDir[inner, :])
-
-                        # Calculate Lanczos algorithm quantities
-                #         magResid = np.sqrt(residuals[inner, :].dot(residuals[inner, :]))
-                #         q_j[inner, :] = (-1**inner) * residuals[inner, :] / magResid
-                #
-                #         # Calculate alpha and beta values from CG scalars
-                #         alpha_j[inner] = (1 / a_j[inner]) + (b_j[inner - 1] / a_j[inner - 1])
-                #         beta_j[inner] = np.sqrt(b_j[inner]) / a_j[inner]
-                #
-                #
-                # # Estimate the eigen-values of Hessian matrix from the inner-loop alpha, beta and q's
-                # mainDiag = np.diag(a_j, k=0)
-                # lowerDiag = np.diag(b_j[:(innerLoopIter - 1)], k=-1)
-                # upperDiag = np.diag(b_j[:(innerLoopIter - 1)], k=1)
-                # triDiag = mainDiag + lowerDiag + upperDiag
-                #
-                # # Calculate eigenvalues of triDiag
-                # tEval, tEvect = scipy.linalg.eigh_tridiagonal(a_j, b_j[:(innerLoopIter - 1)])
-                #
-                # # Transform to get e-vectors of preconditioned Hessian
-                # hessEvect = np.matrix(np.transpose(q_j).dot(tEvect))
-                #
-                # # Estimate the preconditioned inverse Hessian to get
-                # # an estimate of the preconditioned posterior error cov with
-                # # A = I + \sum_{i=0}^innerLoop [(tEval^{-1} - 1)(hessEvect*hessEvect^T)
-                # invTEval = [1 / t for t in tEval]
-                # sqHess = [
-                #     np.transpose(hessEvect[i, :]) @ hessEvect[i, :] for i in range(innerLoopIter)
-                # ]
-                # sumValVect = np.sum(
-                #     [(invTEval[i] - 1) * sqHess[i] for i in range(innerLoopIter)]
-                # )
-                #
-                # postErrCov = np.identity(noOfLonPoints) + sumValVect
-                # totalVar = np.trace(postErrCov)
-                # print(f"Loop {outer}, Posterior total S.D. = {np.sqrt(totalVar)}")
-                #
-                # totalVarOuter[outer] = totalVar.copy()
-
-                # Update outer-loop solar wind speed array
-                if useLogTrans:
-                    # plt.plot(range(noOfLonPoints), BlogHalf.dot(chiIter[outer + 1, :]))
-                    # vLogIter[outer + 1, 0, :] = vLogIter[outer, 0, :] + BlogHalf.dot(chiIter[outer + 1, :])
-                    # vOuterIter[outer + 1, 0, :] = 200 + np.exp(vLogIter[outer + 1, 0, :])
-                    vOuterIter[outer + 1, 0, :] = (
-                            vOuterIter[outer, 0, :] - np.exp(vLogIter[outer, 0, :])
-                            + np.exp(vLogIter[outer, 0, :] + BlogHalf.dot(chiIter[outer + 1, :]))
-                    )
-                    # print(vOuterIter[outer, 0, :])
-                    # print(200 + np.exp(BlogHalf.dot(chiIter[outer + 1, :])+np.log(vOuterIter[outer, 0, :]-200)))
-                    # sys.exit()
-                    # vOuterIter[outer + 1, 0, :] = (
-                    #         200 + np.exp(BlogHalf.dot(chiIter[outer + 1, :])+np.log(vOuterIter[outer, 0, :]-200))
-                    # )
-                else:
-                    vOuterIter[outer + 1, 0, :] = vOuterIter[outer, 0, :] + Bhalf.dot(chiIter[outer + 1, :])
-
-                print(np.abs(vOuterIter[outer + 1, 0, :] - vOuterIter[outer, 0, :]).max())
-                for rIndex in range(1, noOfRadPoints):
-                    vOuterIter[outer + 1, rIndex, :] = bme.forwardRadModelNoLat(
-                        vOuterIter[outer + 1, rIndex - 1, :], vOuterIter[outer + 1, 0, :], r[rIndex - 1], rIndex - 1,
-                        deltaRrs, deltaPhi, solarRotFreq, alpha, rH, noOfLonPoints
-                    )
-                fig = plt.figure()
-                plt.plot(range(noOfLonPoints), vOuterIter[0, obsPosDf.loc["ACE"]["radCoord"][0], :], color='r')
-                # plt.plot(range(noOfLonPoints), obsCompDf.loc["STERA"]["y"][:], color='grey')
-                # plt.plot(range(noOfLonPoints), obsCompDf.loc["STERB"]["y"][:], color='lightgrey')
-                plt.plot(range(noOfLonPoints), obsCompDf.loc["ACE"]["y"][:], color='k')
-                plt.plot(range(noOfLonPoints), vOuterIter[outer + 1, obsPosDf.loc["ACE"]["radCoord"][0], :])
-                plt.show()
-                # Calculate non-linear cost function
-                print("Final non-linear cost function")
-                costFuncOuterVal[outer + 1] = bme.calcCostFuncNoLat(
-                    np.transpose(Bhalf).dot(Bhalf), R, H, vOuterIter[outer + 1, 0, :],
-                    vPrior[w, 0, :],  vOuterIter[outer + 1, :, :], y,  radObs, nRadObs
-                )
-                print("")
-                # bme.calcNonlinCostFuncPrecond(
-                #     chi[-1, :], chiB[outer, :], R, H, vOuterIter[outer + 1, :, :], y, radObs, nRadObs,
-                #     printCF=printCost
-                # )
-                vIter[1, :, :] = vOuterIter[outer + 1, :, :]
-
-                #chiIter[outer + 1, :] = chi[-1, :].copy()
-                chiB[outer + 1, :] = chiB[outer, :] - chiIter[outer + 1, :]
-
-                # Check whether tolerance is exceeded
-                if np.abs(costFuncOuterVal[outer + 1] - costFuncOuterVal[outer]) < gTol:
-                    break
-
-            # Place final outer-loop velocity into vIter array
-            #vIter[1, 0, :] = vOuterIter[-1, 0, :]
-
+            priorTotalVar[w] = np.trace(B)
+            postTotalVar[w] = np.trace(A)
         ####################END PRECONDITIONED DA####################################################
         else:
             # Initialise variables to hold state before and after DA
@@ -969,6 +570,16 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
                 B, R, H, forwardStateIter[1, 0, :], xb, vIter[1, :, :], y,
                 radObs, nRadObs
             )
+
+            # Calculate analysis covariance matrix
+            bhT = B.dot(np.transpose(H))
+            hbhT = H.dot(bhT)
+            invPart = np.linalg.pinv(hbhT + R)
+            K = bhT.dot(invPart)
+            A = (np.identity(noOfLonPoints) - K.dot(H)).dot(B)
+
+            priorTotalVar[w] = np.trace(B)
+            postTotalVar[w] = np.trace(A)
 
         print('\nMinimisation complete for this window\n')
 
@@ -1078,6 +689,14 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
             with open(outPostFile, 'w') as fOut:
                 np.savetxt(fOut, vPlotDf.loc[obsName]["posterior"])
 
+        print("Defining Total variance = np.trace(cov Matrix)")
+        print(f'Prior Total Var = {priorTotalVar[w]}, s.d. = {np.sqrt(priorTotalVar[w])}')
+        print(f'Posterior Total Var = {postTotalVar[w]}, s.d. = {np.sqrt(postTotalVar[w])}')
+        print(' ')
+        outFile.write("Defining Total variance = np.trace(cov Matrix)")
+        outFile.write(f'Prior Total Var = {priorTotalVar[w]}, s.d. = {np.sqrt(priorTotalVar[w])}')
+        outFile.write(f'Posterior Total Var = {postTotalVar[w]}, s.d. = {np.sqrt(postTotalVar[w])}')
+        outFile.write(' ')
         #############################################################################
         # Write MASMean, prior and posterior arrays to file for later use
         # Data output is ASCENDING IN TIME
@@ -1102,6 +721,13 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
         )
         with open(outWindowPostFile, 'w') as fOutPost:
             np.savetxt(fOutPost, vPosterior[w, :, ::-1])
+
+        # Posterior error covariance matrix
+        outWindowPostCovFile = os.path.join(
+            outputDir, 'posterior', f'postCovMat_MJDstart{int(currMJD[w])}.txt'
+        )
+        with open(outWindowPostCovFile, 'w') as fOutPost:
+            np.savetxt(fOutPost, A)
 
         print('\n---------------------------------------------------------------------------------')
         print(f'------ Time Taken to run window = {int((time.time() - startWin_time) / 60)} minutes '
