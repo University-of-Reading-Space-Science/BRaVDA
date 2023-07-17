@@ -8,8 +8,9 @@ import runBravdaExport as rbe
 
 
 
-def bravdafunction(forecastdate, obsToUse = 'C', usecustomens = True, 
-                   runoutputdir = '', plottimeseries = True, corona = 'MAS'):
+def bravdafunction(forecastdate, obsToAssim = 'C', usecustomens = True,
+                   runoutputdir = '', plottimeseries = True, corona = 'MAS',
+                   precondState=False, useLogTrans=False):
     rdm.seed(20000)
     #################################
     # Data to be provided by user
@@ -69,14 +70,14 @@ def bravdafunction(forecastdate, obsToUse = 'C', usecustomens = True,
     # Specify which observations are to be assimilated
     # Write a string of the letters A,B and/or C: A=STERA, B=STERB, C=ACE)
     # eg. ABC means assimilated all obs. streams, AC means assimilated STER A and ACE only
-    #obsToUse = 'C'
+    #obsToAssim = ["ACE"]
     
     # Specify whether R be generated as a percentage of the prior solar wind or as a constant supplied by the user
     # (Write B for background solar wind or C for constant standard deviation, then provide 3 constants seperated
     # by a space indicating the percentage of background (0,1]
     # or constant>0 for STERA, STERB and ACE [even if not assim.])
     setupOfR = 'B 0.1 0.1 0.1'
-    
+
     ############################################################################
     # Set up tolerance in minimisation function in DA
     # gtol for minimisation algorithm.
@@ -89,6 +90,16 @@ def bravdafunction(forecastdate, obsToUse = 'C', usecustomens = True,
     ############################################################################
     makePlots = plottimeseries
 
-    rbe.runBravDA(configFile, huxVarFile, outputDir, obsToUse, setupOfR,
-                  initDate, noOfConsecWindows, noOfMASens, locRad, gTol, makePlots,
-                  usecustomens = usecustomens)
+    rbe.runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR, initDate, noOfConsecWindows, noOfMASens,
+                  locRad, gTol, makePlots, usecustomens=usecustomens, precondState=precondState, useLogTrans=useLogTrans)
+
+if __name__=="__main__":
+    # Specify forecastDate
+    fcDate = datetime.datetime(2011, 7, 30)
+    precondState = True
+    useLogTrans = False
+    # Run BRaVDA function
+    bravdafunction(
+        fcDate, obsToAssim=["STERA", "STERB"], usecustomens=False, runoutputdir='', plottimeseries=True,
+        corona='MAS', precondState=precondState, useLogTrans=useLogTrans
+    )
