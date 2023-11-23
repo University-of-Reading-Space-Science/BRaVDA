@@ -141,6 +141,7 @@ def readObsFile(obsFile, mjdFile):
 
 
 def readObsFileAvg(obsFile, mjdFile, initTime, finalTime):
+
     # Extract average observations from obsFile
     # around the values specified in mjdFile
     # Read file containing the observations
