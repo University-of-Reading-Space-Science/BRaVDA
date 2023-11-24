@@ -1,9 +1,5 @@
 #[1] File holding MJD's for start each Carrington rotation
-<<<<<<< Updated upstream
-Obs/CR_MJD/2039_2300CRMJDstart.csv
-=======
 Obs\CR_MJD\2000_2300CRMJDstartV2.csv
->>>>>>> Stashed changes
 #[3] Directory containing MAS model runs for creating ensemble (if they don't exist, they will be downloaded into this folder)
 downMas/
 #[5] Directory containing ensemble files used to generate B (if they don't exist, they will be created)
