@@ -8,7 +8,7 @@ import runBravdaExport as rbe
 
 def bravdafunction(forecastdate, obsToAssim = 'C', usecustomens = True,
                    runoutputdir = '', plottimeseries = True, corona = 'MAS',
-                   precondState = True, useLogTrans = False):
+                   precondState = False, useLogTrans = False):
     rdm.seed(20000)
     #################################
     # Data to be provided by user
