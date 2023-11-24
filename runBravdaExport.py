@@ -462,7 +462,7 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
             if useLogTrans:
                 pass
             else:
-                resOpt = scipy.optimize.minimize(
+                resOpt = optimize.minimize(
                     fun=bme.calcCostFuncPrecond, x0=chi,
                     args=(
                         xb, Bhalf, R, H, y, radObs, nRadObs,
@@ -538,7 +538,7 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
             # Minimise the cost function
             ###########################################################################################
             # Perform minimisation of cost function to obtain analysis state
-            resOpt = optimize.minimize(
+            resOpt = scipy.optimize.minimize(
                 fun=bme.calcCostFuncForCGNoLat, x0=xb,
                 args=(
                     B, R, H, xb, y, radObs, nRadObs,
