@@ -6,11 +6,10 @@ import scipy
 import os
 import shutil
 import sys
-import matplotlib.pyplot as plt
+from scipy import optimize
 
 import bravdaMethodsExport as bme
 from makeMASens import helioMASens
-import lineSearchMin as lsm
 
 
 def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
@@ -539,7 +538,7 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
             # Minimise the cost function
             ###########################################################################################
             # Perform minimisation of cost function to obtain analysis state
-            resOpt = scipy.optimize.minimize(
+            resOpt = optimize.minimize(
                 fun=bme.calcCostFuncForCGNoLat, x0=xb,
                 args=(
                     B, R, H, xb, y, radObs, nRadObs,

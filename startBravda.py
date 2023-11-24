@@ -1,7 +1,5 @@
 import os
 import random as rdm
-import matplotlib.pyplot as plt
-from datetime import datetime as dt
 import datetime
 import runBravdaExport as rbe
 
@@ -10,7 +8,7 @@ import runBravdaExport as rbe
 
 def bravdafunction(forecastdate, obsToAssim = 'C', usecustomens = True,
                    runoutputdir = '', plottimeseries = True, corona = 'MAS',
-                   precondState=False, useLogTrans=False):
+                   precondState = True, useLogTrans = False):
     rdm.seed(20000)
     #################################
     # Data to be provided by user
@@ -90,8 +88,10 @@ def bravdafunction(forecastdate, obsToAssim = 'C', usecustomens = True,
     ############################################################################
     makePlots = plottimeseries
 
-    rbe.runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR, initDate, noOfConsecWindows, noOfMASens,
-                  locRad, gTol, makePlots, usecustomens=usecustomens, precondState=precondState, useLogTrans=useLogTrans)
+    rbe.runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR, 
+                  initDate, noOfConsecWindows, noOfMASens,
+                  locRad, gTol, makePlots, usecustomens=usecustomens, 
+                  precondState=precondState, useLogTrans=useLogTrans)
 
 if __name__=="__main__":
     # Specify forecastDate
