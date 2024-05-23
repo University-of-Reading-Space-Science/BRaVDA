@@ -1,0 +1,16 @@
+When using delivered data please acknowledge the data provider and 
+PDS in accordance with the PDS citation policy. Full details can be 
+found at:
+
+http://pds-ppi.igpp.ucla.edu/citations_policy.jsp
+
+
+	Author : Connerney, J. E. P.
+	Publication Year: 2022
+	Description : 
+            Vector magnetic field data acquired by the Fluxgate Magnetometer instrument aboard the MAVEN spacecraft. The data are calibrated and provided in physical units (nT). The time resolution depends on the telemetry rate available when the data were taken. The data are expressed in Sun State coordinates.
+         
+	doi : https://doi.org/10.17189/1414251
+
+Thank you.
+

@@ -1,0 +1,4 @@
+obsName obsFileName obsLocFileName obsErrCovType obsErrCovVal
+STERA Obs/ObservationFiles/STEREO-A_observations.txt Obs/AbsLocFiles/stereoa_2006_2029.lst B 0.1
+STERB Obs/ObservationFiles/STEREO-B_observations.txt Obs/AbsLocFiles/stereob_2006_2029.lst B 0.1
+OMNI Obs/ObservationFiles/OMNI_observations.txt Obs/AbsLocFiles/earth_2000_2030.lst B 0.1

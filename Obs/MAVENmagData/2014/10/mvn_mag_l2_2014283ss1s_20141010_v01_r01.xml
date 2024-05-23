@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="https://pds.nasa.gov/pds4/pds/v1/PDS4_PDS_1D00.sch"
+    schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<?xml-model href="https://pds.nasa.gov/pds4/mission/mvn/v1/PDS4_MVN_1D00_1110.sch"
+   schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<Product_Observational xmlns="http://pds.nasa.gov/pds4/pds/v1"
+   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xmlns:mvn="http://pds.nasa.gov/pds4/mission/mvn/v1"
+   xsi:schemaLocation="
+      http://pds.nasa.gov/pds4/pds/v1
+      https://pds.nasa.gov/pds4/pds/v1/PDS4_PDS_1D00.xsd
+ 
+      http://pds.nasa.gov/pds4/mission/mvn/v1
+      https://pds.nasa.gov/pds4/mission/mvn/v1/PDS4_MVN_1D00_1110.xsd
+   ">
+    <Identification_Area>
+        <logical_identifier>urn:nasa:pds:maven.mag.calibrated:data.ss:mvn_mag_l2_2014283ss1s_20141010</logical_identifier>
+        <version_id>1.1</version_id>
+        <title>Tabulated vector magnetic field vs. time in Sun-State coordinates.</title>
+        <information_model_version>1.13.0.0</information_model_version>
+        <product_class>Product_Observational</product_class>
+       <Citation_Information>
+        <author_list>Connerney, J. E. P.</author_list>
+        <publication_year>2017</publication_year>
+        <description>
+         Calibrated science magnetic field vector data with position in 
+        Sun-State coordinate system for 2014-10-10 (2014-283).
+        </description>
+       </Citation_Information>
+       <Modification_History>
+          <Modification_Detail>
+             <modification_date>2017-05-26</modification_date>
+             <version_id>1.1</version_id>
+             <description>
+                 This label for this product has been converted to IM V.1.13.0.0. The data have not changed.
+             </description>
+          </Modification_Detail>
+       </Modification_History>
+    </Identification_Area>
+    <Observation_Area>
+        <Time_Coordinates>
+            <start_date_time>2014-10-10T00:00:00.536Z</start_date_time>
+            <stop_date_time>2014-10-11T00:00:00.499Z</stop_date_time>
+        </Time_Coordinates>
+        <Primary_Result_Summary>
+            <purpose>Science</purpose>
+            <processing_level>Calibrated</processing_level>
+            <Science_Facets>
+                <discipline_name>Fields</discipline_name>
+                <facet1>Magnetic</facet1>
+                <facet2>Background</facet2>
+            </Science_Facets>
+        </Primary_Result_Summary>
+        <Investigation_Area>
+            <name>MAVEN</name>
+            <type>Mission</type>
+            <Internal_Reference>
+                <lid_reference>urn:nasa:pds:context:investigation:mission.maven</lid_reference>
+                <reference_type>data_to_investigation</reference_type>
+            </Internal_Reference>
+        </Investigation_Area>
+        <Observing_System>
+            <Observing_System_Component>
+                <name>MAVEN</name>
+                <type>Spacecraft</type>
+                <Internal_Reference>
+                    <lid_reference>urn:nasa:pds:context:instrument_host:spacecraft.maven</lid_reference>
+                    <reference_type>is_instrument_host</reference_type>
+                </Internal_Reference>
+            </Observing_System_Component>
+            <Observing_System_Component>
+                <name>MAG</name>
+                <type>Instrument</type>
+                <Internal_Reference>
+                    <lid_reference>urn:nasa:pds:context:instrument:mag.maven</lid_reference>
+                    <reference_type>is_instrument</reference_type>
+                </Internal_Reference>
+            </Observing_System_Component>
+        </Observing_System>
+        <Target_Identification>
+            <name>Mars</name>
+            <type>Planet</type>
+            <Internal_Reference>
+                <lid_reference>urn:nasa:pds:context:target:planet.mars</lid_reference>
+                <reference_type>data_to_target</reference_type>
+            </Internal_Reference>
+        </Target_Identification>
+        <Mission_Area>
+            <mvn:MAVEN>
+               <mvn:mission_phase_name>Transition</mvn:mission_phase_name>
+           </mvn:MAVEN>
+        </Mission_Area>
+    </Observation_Area>
+    <File_Area_Observational>
+        <File>
+            <file_name>mvn_mag_l2_2014283ss1s_20141010_v01_r01.sts</file_name>
+            <md5_checksum>b1006d695ba2ab1ee93da3dc57d8163e</md5_checksum>
+            <comment>This file contains vector magnetic field data acquired by the
+Fluxgate Magnetometer instrument aboard the MAVEN spacecraft.
+The data are calibrated and provided in physical units (nT).
+The data has been downsampled to 1 second to provide a more 
+compact dataset.  The data are expressed in
+Sun-State coordinates.</comment>
+        </File>
+        <Header>
+            <offset unit="byte">0</offset>
+            <object_length unit="byte">10815</object_length>
+            <parsing_standard_id>7-Bit ASCII Text</parsing_standard_id>
+        </Header>
+        <Table_Character>
+            <offset unit="byte">10815</offset>
+            <records>86319</records>
+            <description>The magnetic field data are stored in a fixed field ASCII table
+structure that immediately follows the attached header.  This table
+contains time-tagged rows of magnetic field values and instrument
+dynamic range identifiers.</description>
+            <record_delimiter>Carriage-Return Line-Feed</record_delimiter>
+            <Record_Character>
+                <fields>13</fields>
+                <groups>0</groups>
+                <record_length unit="byte">150</record_length>
+                <Field_Character>
+                    <name>SAMPLE UTC</name>
+                    <field_location unit="byte">3</field_location>
+                    <data_type>ASCII_String</data_type>
+                    <field_length unit="byte">21</field_length>
+                    <description>Universal time of the sample at the spacecraft.  The time appears as 6
+integer columns (year, day of year, hour, minute, seconds, millisecond).
+Individual elements of the time column are separated by a single ASCII
+space character and have leading zeros omitted.  The individual elements
+can be read by using the following FORTRAN format:
+'(2X,I4,1X,I3,3(1X,I2),1X,I3)' IYR IDOY IHR IMIN ISEC IMSEC</description>
+                </Field_Character>
+                <Field_Character>
+                    <name>DECIMAL DAY</name>
+                    <field_location unit="byte">25</field_location>
+                    <data_type>ASCII_Real</data_type>
+                    <field_length unit="byte">13</field_length>
+                    <description>Decimal day of year.  This column provides a second representation of
+the sample time.</description>
+                </Field_Character>
+                <Field_Character>
+                    <name>BX SUN-STATE</name>
+                    <field_location unit="byte">40</field_location>
+                    <data_type>ASCII_Real</data_type>
+                    <field_length unit="byte">9</field_length>
+                    <description>B-field X-component in Sun-State coordinate system.</description>
+                </Field_Character>
+                <Field_Character>
+                    <name>BY SUN-STATE</name>
+                    <field_location unit="byte">50</field_location>
+                    <data_type>ASCII_Real</data_type>
+                    <field_length unit="byte">9</field_length>
+                    <description>B-field Y-component in Sun-State coordinate system.</description>
+                </Field_Character>
+                <Field_Character>
+                    <name>BZ SUN-STATE</name>
+                    <field_location unit="byte">60</field_location>
+                    <data_type>ASCII_Real</data_type>
+                    <field_length unit="byte">9</field_length>
+                    <description>B-field Z-component in Sun-State coordinate system.</description>
+                </Field_Character>
+                <Field_Character>
+                    <name>INSTRUMENT RANGE</name>
+                    <field_location unit="byte">70</field_location>
+                    <data_type>ASCII_Real</data_type>
+                    <field_length unit="byte">3</field_length>
+                    <description>Instrument dynamic range identifier at time of the sample.
+Pertains to B components.</description>
+                </Field_Character>
+                <Field_Character>
+                    <name>X</name>
+                    <field_location unit="byte">75</field_location>
+                    <data_type>ASCII_Real</data_type>
+                    <field_length unit="byte">14</field_length>
+                    <description>Spacecraft position X-component in Sun-State coordinate system.</description>
+                </Field_Character>
+                <Field_Character>
+                    <name>Y</name>
+                    <field_location unit="byte">90</field_location>
+                    <data_type>ASCII_Real</data_type>
+                    <field_length unit="byte">14</field_length>
+                    <description>Spacecraft position Y-component in Sun-State coordinate system.</description>
+                </Field_Character>
+                <Field_Character>
+                    <name>Z</name>
+                    <field_location unit="byte">105</field_location>
+                    <data_type>ASCII_Real</data_type>
+                    <field_length unit="byte">14</field_length>
+                    <description>Spacecraft position Z-component in Sun-State coordinate system.</description>
+                </Field_Character>
+                <Field_Character>
+                    <name>BDX PAYLOAD</name>
+                    <field_location unit="byte">121</field_location>
+                    <data_type>ASCII_Real</data_type>
+                    <field_length unit="byte">7</field_length>
+                    <description>B-field X-component dynamic correction in 
+Payload coordinate system.</description>
+                </Field_Character>
+                <Field_Character>
+                    <name>BDY PAYLOAD</name>
+                    <field_location unit="byte">129</field_location>
+                    <data_type>ASCII_Real</data_type>
+                    <field_length unit="byte">7</field_length>
+                    <description>B-field Y-component dynamic correction in 
+Payload coordinate system.</description>
+                </Field_Character>
+                <Field_Character>
+                    <name>BDZ PAYLOAD</name>
+                    <field_location unit="byte">137</field_location>
+                    <data_type>ASCII_Real</data_type>
+                    <field_length unit="byte">7</field_length>
+                    <description>B-field Z-component dynamic correction in 
+Payload coordinate system.</description>
+                </Field_Character>
+                <Field_Character>
+                    <name>INSTRUMENT RANGE</name>
+                    <field_location unit="byte">145</field_location>
+                    <data_type>ASCII_Real</data_type>
+                    <field_length unit="byte">4</field_length>
+                    <description>Instrument dynamic range identifier at time of the sample.
+Pertains to B components.</description>
+                </Field_Character>
+            </Record_Character>
+        </Table_Character>
+    </File_Area_Observational>
+</Product_Observational>
