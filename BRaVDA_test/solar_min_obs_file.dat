@@ -1,0 +1,4 @@
+obsName obsFileName obsLocFileName obsErrCovType obsErrCovVal
+STERA BRaVDA_test/Obs/STEREO-A_sol_min_obs.txt Obs/AbsLocFiles/stereoa_2006_2029.lst B 0.1
+STERB BRaVDA_test/Obs/STEREO-B_sol_min_obs.txt Obs/AbsLocFiles/stereob_2006_2029.lst B 0.1
+OMNI BRaVDA_test/Obs/OMNI_sol_min_obs.txt Obs/AbsLocFiles/earth_2000_2030.lst B 0.1

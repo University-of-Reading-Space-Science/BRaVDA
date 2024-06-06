@@ -1,0 +1,8 @@
+outputDir = /Users/yx919401/Documents/PDRA/BRaVDA-master/BRaVDA_test/Solar_min_test
+obsToAssim = ['STERA', 'STERB', 'OMNI']
+setupOfR = B 0.1 0.1 0.1
+initDate = 09022009
+noOfConsecWindows = 1
+noOfMASens = 501
+locRad = 15.0
+gTol = 1e-05
