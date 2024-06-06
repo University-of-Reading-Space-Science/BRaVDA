@@ -1,4 +1,3 @@
-# Import necessary packages
 import numpy as np
 import pandas as pd
 import time
@@ -12,9 +11,9 @@ import bravdaMethodsExport as bme
 from makeMASens import helioMASens
 
 
-def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
-              initDate, noOfWindows, nMASens, locRad, gTol, makePlots,
-              usecustomens = False, useLogTrans=False, precondState=False):
+def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR, initDate, noOfWindows, nMASens, locRad, gTol,
+              makePlots, usecustomens=False, precondState=False):
+
     # Initialise timer
     start_time = time.time()
 
@@ -203,9 +202,6 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
     vPosterior = np.zeros((noOfWindows, noOfRadPoints, noOfLonPoints))
     vMASMean = np.zeros((noOfWindows, noOfRadPoints, noOfLonPoints))
 
-    if useLogTrans:
-        vLogPrior = np.zeros((noOfWindows, noOfRadPoints, noOfLonPoints))
-
     # If user wishes to plot all windows consecutively, this array holds the solar wind speeds sequentially
     vPriorAll = np.zeros((noOfRadPoints, totalLonPoints))
     vPosteriorAll = np.zeros((noOfRadPoints, totalLonPoints))
@@ -266,7 +262,7 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
                 os.makedirs(dirMJDpath)
 
             # Make MJD file, downloading new data if necessary
-            bme.makeMJDfile(currMJD[-1], noOfLonPoints, fileMJDpath, daySolarRot= 27.2753)
+            bme.makeMJDfile(currMJD[-1], noOfLonPoints, fileMJDpath, daySolarRot=27.2753)
 
     #####################################################################################
     # Check existence of and make initial ensemble files if required for each window
@@ -278,14 +274,13 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
     else:
         for w in range(noOfWindows):
             filesVrEns.append(f'{dirMASens}vin_ensemble_CR{currCR[w]}.dat')
-           
-    
+
             if not os.path.isfile(filesVrEns[w]):
                 # If MAS ensemble file does not exist, make it
                 print(f'Generating MAS ensembles for CR {currCR[w]}...')
-    
+
                 # Generate path to ephemerisMSL.hdf5 file (should be in makeMASens, don't move)
-                ephemFile = os.path.join(currentDir,'makeMASens', 'ephemerisMSL.hdf5')
+                ephemFile = os.path.join(currentDir, 'makeMASens', 'ephemerisMSL.hdf5')
                 helioMASens.makeMASens(
                     fileCRstartMJD, currCR[w], currCR[w] + 1, nMASens, noOfLonPoints,
                     ephemFile, downMASdir, dirMASens,
@@ -340,23 +335,15 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
         print(f'Carr. Rot.: {currCR[w]}')
 
         if precondState:
-            if useLogTrans:
-                Bhalf, forwardStatePrior, forwardStateMASMean, BlogHalf, forwardLogPrior = bme.makePriors(
-                    filesVrEns[w], initMJDCR[w], currMJD[w], locRad, nMASens, r, rH, deltaRrs, deltaPhi, alpha,
-                    solarRotFreq, noOfRadPoints, noOfLonPoints, useBlogTrans=useLogTrans, precondState=True
-                )
-
-                vLogPrior[w, :, :] = np.copy(forwardLogPrior)
-            else:
-                Bhalf, forwardStatePrior, forwardStateMASMean = bme.makePriors(
-                    filesVrEns[w], initMJDCR[w], currMJD[w], locRad, nMASens, r, rH, deltaRrs, deltaPhi, alpha,
-                    solarRotFreq, noOfRadPoints, noOfLonPoints, useBlogTrans=useLogTrans, precondState=True
-                )
+            Bhalf, forwardStatePrior, forwardStateMASMean = bme.makePriors(filesVrEns[w], initMJDCR[w], currMJD[w],
+                                                                           locRad, nMASens, r, rH, deltaRrs, deltaPhi,
+                                                                           alpha, solarRotFreq, noOfRadPoints,
+                                                                           noOfLonPoints, precondState=True)
         else:
-            B, forwardStatePrior, forwardStateMASMean = bme.makePriors(
-                filesVrEns[w], initMJDCR[w], currMJD[w], locRad, nMASens, r, rH, deltaRrs, deltaPhi, alpha,
-                solarRotFreq, noOfRadPoints, noOfLonPoints, precondState=False
-            )
+            B, forwardStatePrior, forwardStateMASMean = bme.makePriors(filesVrEns[w], initMJDCR[w], currMJD[w], locRad,
+                                                                       nMASens, r, rH, deltaRrs, deltaPhi, alpha,
+                                                                       solarRotFreq, noOfRadPoints, noOfLonPoints,
+                                                                       precondState=False)
 
         vPrior[w, :, :] = np.copy(forwardStatePrior)
         vMASMean[w, :, :] = np.copy(forwardStateMASMean)
@@ -368,10 +355,8 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
 
         for obsName in obsFileDf.index:
             fObs = obsFileDf.loc[obsName]["obsFilePath"]
-            yTemp, yTempPlot, obsToBeTakenTemp, noOfObsTemp = bme.makeObs(
-                fObs, fileMJD[w], currMJD[w], noOfLonPoints,
-                lowerCutOff=0, upperCutOff=5000
-            )
+            yTemp, yTempPlot, obsToBeTakenTemp, noOfObsTemp = bme.makeObs(fObs, fileMJD[w], currMJD[w], noOfLonPoints,
+                                                                          lowerCutOff=0, upperCutOff=5000)
             obsCompDf.loc[obsName] = [yTemp, yTempPlot, obsToBeTakenTemp, noOfObsTemp]
 
         # Place all obs into a dictionary
@@ -396,10 +381,10 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
         #####################################
         # Initialise obs.
         y = []
-        H = [] # Obs. operator
+        H = []  # Obs. operator
         R = []  # Obs. error covar. for all obs. to be assimilated
 
-        #Initialise radObs and nRadObs
+        # Initialise radObs and nRadObs
         radObs = []
         nRadObs = []
 
@@ -436,21 +421,17 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
             # Run initial solar wind speed out into the heliosphere (from 30rS -> 215rS)
             # !Is this for loop necessary (vIter[0, :,:] = vPrior[w, :, :])?
             for rIndex in range(1, noOfRadPoints):
-                forwardStateIter[0, rIndex, :] = bme.forwardRadModelNoLat(
-                    vIter[0, rIndex - 1, :], vIter[0, 0, :],
-                    r[rIndex - 1], rIndex - 1, deltaRrs, deltaPhi,
-                    solarRotFreq, alpha, rH, noOfLonPoints
-                )
+                forwardStateIter[0, rIndex, :] = bme.forwardRadModelNoLat(vIter[0, rIndex - 1, :], vIter[0, 0, :],
+                                                                          r[rIndex - 1], rIndex - 1, deltaRrs, deltaPhi,
+                                                                          solarRotFreq, alpha, rH, noOfLonPoints)
                 vIter[0, rIndex, :] = np.copy(forwardStateIter[0, rIndex, :])
 
             # Initialise state vector variables at inner radius
             xb = forwardStateIter[0, 0, :]
 
             # Calculate cost function at initial iteration
-            costFuncVal[0] = bme.calcCostFuncNoLat(
-                B, R, H, forwardStateIter[0, 0, :], xb, vIter[0, :, :], y,
-                radObs, nRadObs
-            )
+            costFuncVal[0] = bme.calcCostFuncNoLat(B, R, H, forwardStateIter[0, 0, :], xb, vIter[0, :, :], y, radObs,
+                                                   nRadObs)
 
             # Precondition the state
             chi = np.zeros((noOfLonPoints))
@@ -459,17 +440,10 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
             # Minimise the cost function
             ###########################################################################################
             # Perform minimisation of cost function to obtain analysis state
-            if useLogTrans:
-                pass
-            else:
-                resOpt = optimize.minimize(
-                    fun=bme.calcCostFuncPrecond, x0=chi,
-                    args=(
-                        xb, Bhalf, R, H, y, radObs, nRadObs,
-                        r, rH, deltaRrs, deltaPhi, alpha, solarRotFreq,
-                        noOfRadPoints, noOfLonPoints, False, False
-                    ), method='BFGS', jac=bme.makeGradCGPrecond, options={'gtol': gTol, 'disp': True}
-                )
+            resOpt = optimize.minimize(fun=bme.calcCostFuncPrecond, x0=chi, args=(xb, Bhalf, R, H, y, radObs, nRadObs,
+                                       r, rH, deltaRrs, deltaPhi, alpha, solarRotFreq, noOfRadPoints, noOfLonPoints,
+                                       False, False), method='BFGS', jac=bme.makeGradCGPrecond, options={'gtol': gTol,
+                                       'disp': True})
 
             ###########################################################################
             # Extract the  analysis solar wind speed in both speed matrix and state vector form
@@ -504,7 +478,7 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
 
             priorTotalVar[w] = np.trace(B)
             postTotalVar[w] = np.trace(A)
-        ####################END PRECONDITIONED DA####################################################
+        # ##################END PRECONDITIONED DA####################################################
         else:
             # Initialise variables to hold state before and after DA
             vIter = np.zeros((2, noOfRadPoints, noOfLonPoints))
@@ -518,33 +492,26 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
             # Run initial solar wind speed out into the heliosphere (from 30rS -> 215rS)
             # !Is this for loop necessary (vIter[0, :,:] = vPrior[w, :, :])?
             for rIndex in range(1, noOfRadPoints):
-                forwardStateIter[0, rIndex, :] = bme.forwardRadModelNoLat(
-                    vIter[0, rIndex - 1, :], vIter[0, 0, :],
-                    r[rIndex - 1], rIndex - 1, deltaRrs, deltaPhi,
-                    solarRotFreq, alpha, rH, noOfLonPoints
-                )
+                forwardStateIter[0, rIndex, :] = bme.forwardRadModelNoLat(vIter[0, rIndex - 1, :], vIter[0, 0, :],
+                                                                          r[rIndex - 1], rIndex - 1, deltaRrs, deltaPhi,
+                                                                          solarRotFreq, alpha, rH, noOfLonPoints)
                 vIter[0, rIndex, :] = np.copy(forwardStateIter[0, rIndex, :])
 
             # Initialise state vector variables at inner radius
             xb = forwardStateIter[0, 0, :]
 
             # Calculate cost function at initial iteration
-            costFuncVal[0] = bme.calcCostFuncNoLat(
-                B, R, H, forwardStateIter[0, 0, :], xb, vIter[0, :, :], y,
-                radObs, nRadObs
-            )
+            costFuncVal[0] = bme.calcCostFuncNoLat(B, R, H, forwardStateIter[0, 0, :], xb, vIter[0, :, :], y, radObs,
+                                                   nRadObs)
 
             ###########################################################################################
             # Minimise the cost function
             ###########################################################################################
             # Perform minimisation of cost function to obtain analysis state
-            resOpt = scipy.optimize.minimize(
-                fun=bme.calcCostFuncForCGNoLat, x0=xb,
-                args=(
-                    B, R, H, xb, y, radObs, nRadObs,
-                    r, rH, deltaRrs, deltaPhi, alpha, solarRotFreq, noOfRadPoints, noOfLonPoints
-                ), method='BFGS', jac=bme.makeGradCGNoLat, options={'gtol': gTol, 'disp': True}
-            )
+            resOpt = scipy.optimize.minimize(fun=bme.calcCostFuncForCGNoLat, x0=xb, args=(B, R, H, xb, y, radObs,
+                                             nRadObs, r, rH, deltaRrs, deltaPhi, alpha, solarRotFreq, noOfRadPoints,
+                                             noOfLonPoints), method='BFGS', jac=bme.makeGradCGNoLat,
+                                             options={'gtol': gTol, 'disp': True})
 
             ###########################################################################
             # Extract the  analysis solar wind speed in both speed matrix and state vector form
@@ -556,19 +523,16 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
             # Run analysed DA state out into the heliosphere using the numerical model
             #####################################################################
             for rIndex in range(1, noOfRadPoints):
-                forwardStateIter[1, rIndex, :] = bme.forwardRadModelNoLat(
-                    vIter[1, rIndex - 1, :], vIter[1, 0, :], r[rIndex - 1], rIndex - 1,
-                    deltaRrs, deltaPhi, solarRotFreq, alpha, rH, noOfLonPoints
-                )
+                forwardStateIter[1, rIndex, :] = bme.forwardRadModelNoLat(vIter[1, rIndex - 1, :], vIter[1, 0, :],
+                                                                          r[rIndex - 1], rIndex - 1, deltaRrs, deltaPhi,
+                                                                          solarRotFreq, alpha, rH, noOfLonPoints)
                 vIter[1, rIndex, :] = np.copy(forwardStateIter[1, rIndex, :])
 
             ###################################################################################
             # Calculate cost function after DA analysis and store in cost function variable
             ###################################################################################
-            costFuncVal[1] = bme.calcCostFuncNoLat(
-                B, R, H, forwardStateIter[1, 0, :], xb, vIter[1, :, :], y,
-                radObs, nRadObs
-            )
+            costFuncVal[1] = bme.calcCostFuncNoLat(B, R, H, forwardStateIter[1, 0, :], xb, vIter[1, :, :], y, radObs,
+                                                   nRadObs)
 
             # Calculate analysis covariance matrix
             bhT = B.dot(np.transpose(H))
@@ -597,9 +561,9 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
         vPlotDf = pd.DataFrame(columns=["observations", "ensMean", "prior", "posterior"])
         rmseDf = pd.DataFrame(columns=["ensMean", "prior", "posterior"])
 
-        vPriorObs = np.zeros((noOfLonPoints))
-        vPostObs = np.zeros((noOfLonPoints))
-        vEnsObs = np.zeros((noOfLonPoints))
+        vPriorObs = np.zeros(noOfLonPoints)
+        vPostObs = np.zeros(noOfLonPoints)
+        vEnsObs = np.zeros(noOfLonPoints)
 
         for obsName in obsCompDf.index:
             radCoordReq = radCoordDict[obsName]
@@ -635,9 +599,8 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
 
             if makePlots:
                 swFileDir = os.path.join(outputDir, 'plots', 'swOver27d')
-                fig, ax = bme.plotSWspeedDict(
-                    deltaPhiDeg, vPlotDf.loc[obsName], swFileDir, obsName, currMJD[w], fontSize=18, lWid=2.0
-                )
+                fig, ax = bme.plotSWspeedDict(deltaPhiDeg, vPlotDf.loc[obsName], swFileDir, obsName, currMJD[w],
+                                              fontSize=18, lWid=2.0)
 
         ###########################################################################
         # Output RMSEs for user
@@ -701,30 +664,22 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR,
         # Data output is ASCENDING IN TIME
         #############################################################################
         # MAS Mean
-        outWindowMASMeanFile = os.path.join(
-            outputDir, 'meanMAS', f'meanMAS_MJDstart{int(currMJD[w])}.txt'
-        )
+        outWindowMASMeanFile = os.path.join(outputDir, 'meanMAS', f'meanMAS_MJDstart{int(currMJD[w])}.txt')
         with open(outWindowMASMeanFile, 'w') as fOutMAS:
             np.savetxt(fOutMAS, vMASMean[w, :, ::-1])
 
         # Prior
-        outWindowPriorFile = os.path.join(
-            outputDir, 'prior', f'prior_MJDstart{int(currMJD[w])}.txt'
-        )
+        outWindowPriorFile = os.path.join(outputDir, 'prior', f'prior_MJDstart{int(currMJD[w])}.txt')
         with open(outWindowPriorFile, 'w') as fOutPrior:
             np.savetxt(fOutPrior, vPrior[w, :, ::-1])
 
         # Posterior
-        outWindowPostFile = os.path.join(
-            outputDir, 'posterior', f'posterior_MJDstart{int(currMJD[w])}.txt'
-        )
+        outWindowPostFile = os.path.join(outputDir, 'posterior', f'posterior_MJDstart{int(currMJD[w])}.txt')
         with open(outWindowPostFile, 'w') as fOutPost:
             np.savetxt(fOutPost, vPosterior[w, :, ::-1])
 
         # Posterior error covariance matrix
-        outWindowPostCovFile = os.path.join(
-            outputDir, 'posterior', f'postCovMat_MJDstart{int(currMJD[w])}.txt'
-        )
+        outWindowPostCovFile = os.path.join(outputDir, 'posterior', f'postCovMat_MJDstart{int(currMJD[w])}.txt')
         with open(outWindowPostCovFile, 'w') as fOutPost:
             np.savetxt(fOutPost, A)
 

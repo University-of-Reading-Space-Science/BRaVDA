@@ -1,20 +1,11 @@
-"""
-Created on Thu Jun 11 12:50:49 2020
-
-@author: mathewjowens
-Editted by Matthew Lang
-"""
 import httplib2
 import urllib.request
 import os
 from pyhdf.SD import SD, SDC
 import numpy as np
 
-# Get MAS data from MHDweb
-def getMASboundaryconditions(
-        cr=np.NaN, dirLoc='', observatory='',
-        runtype='', runnumber='', masres = ''
-):
+
+def getMASboundaryconditions(cr=np.NaN, dirLoc='', observatory='', runtype='', runnumber='', masres=''):
     """
     A function to grab the  Vr and Br boundary conditions from MHDweb. An order
     of preference for observatories is given in the function. Checks first if
@@ -48,18 +39,15 @@ def getMASboundaryconditions(
 
     # the order of preference for different MAS run results
     overwrite = False
-    
+
     if not masres:
         masres_order = ['high', 'medium']
     else:
         masres_order = [str(masres)]
         overwrite = True  # If the user wants a specific observatory, overwrite what's already downloaded
 
-    
     if not observatory:
-        observatories_order = [
-            'hmi', 'mdi', 'solis', 'gong', 'mwo', 'wso', 'kpo'
-        ]
+        observatories_order = ['hmi', 'mdi', 'solis', 'gong', 'mwo', 'wso', 'kpo']
     else:
         observatories_order = [str(observatory)]
         # if the user wants a specific observatory,
@@ -164,7 +152,6 @@ def readMASvr(cr, dirLoc):
 
     # get the boundary condition directory
     _boundary_dir_ = dirLoc
-    # dirs['boundary_conditions']
 
     # create the filenames
     heliomas_url_end = '_r0.hdf'
@@ -175,10 +162,6 @@ def readMASvr(cr, dirLoc):
     # print(os.path.exists(filepath))
 
     file = SD(filepath, SDC.READ)
-    # print(file.info())
-    # datasets_dic = file.datasets()
-    # for idx,sds in enumerate(datasets_dic.keys()):
-    #     print(idx,sds)
 
     sds_obj = file.select('fakeDim0')  # select sds
     MAS_vr_Xa = sds_obj.get()  # get sds data
@@ -238,28 +221,22 @@ def get_MAS_long_profile(cr, dirLoc, nLon=128, lat=0.0):
     # extract the value at the given latitude
     vr = np.ones(len(MAS_vr_Xa))
     for i in range(0, len(MAS_vr_Xa)):
-        vr[i] = np.interp(
-            ang_from_N_pole, MAS_vr_Xm, MAS_vr[i][:]
-        )
+        vr[i] = np.interp(ang_from_N_pole, MAS_vr_Xm, MAS_vr[i][:])
 
     # now interpolate on to the HUXt longitudinal grid
     dLon = (2 * np.pi) / nLon
     halfDLon = dLon / 2.0
     lon = np.arange(halfDLon, 2 * np.pi - halfDLon, dLon)
 
-    vr_in = np.interp(
-        lon, MAS_vr_Xa, vr
-    )  # *u.km/u.s
+    vr_in = np.interp(lon, MAS_vr_Xa, vr)
 
     return vr_in
 
 
 def get_MAS_maps(cr, dirLoc):
     """
-    a function to download, read and process MAS output to
-    provide HUXt boundary
-    conditions as lat-long maps, along with angle from equator for the maps
-    maps returned in native resolution, not HUXt resolution
+    a function to download, read and process MAS output to provide HUXt boundary conditions as lat-long maps, along
+    with angle from the equator for the maps. maps returned in native resolution, not HUXt resolution
 
     Parameters
     ----------
@@ -295,10 +272,6 @@ def get_MAS_maps(cr, dirLoc):
 
     # convert the lat angles from N-pole to equator centred
     vr_lats = (np.pi / 2) - MAS_vr_Xm
-
-    # flip lats, so they're increasing in value
-    #vr_lats = np.flipud(vr_lats)
-    #vr_map = np.fliplr(vr_map)
 
     vr_longs = MAS_vr_Xa
 

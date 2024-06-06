@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-# Import necessary packages
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -40,12 +38,6 @@ def gregToMJD(year, dayOfYear, hour):
     jdTerm5 = day + 1721028.5
 
     julianDayObs = jdTerm1 - jdTerm2 - jdTerm3 + jdTerm4 + jdTerm5
-
-    # julianDayObs = (
-    #        (367 * year) - np.floor(7 * (year + np.floor((month + 9) / 12.0)) * 0.25) - (
-    #    np.floor(0.75 * (np.floor(0.01 * (year + ((month - 9) / 7.0))) + 1))
-    # ) + np.floor((275 * month) / 9.0) + day + 1721028.5
-    # )
 
     julianTimeObs = julianDayObs + (hour / 24.0)
     MJD = julianTimeObs - 2400000.5
@@ -141,7 +133,6 @@ def readObsFile(obsFile, mjdFile):
 
 
 def readObsFileAvg(obsFile, mjdFile, initTime, finalTime):
-
     # Extract average observations from obsFile
     # around the values specified in mjdFile
     # Read file containing the observations
@@ -195,7 +186,7 @@ def readObsFileAvg(obsFile, mjdFile, initTime, finalTime):
             # Calculate half the time between second and first obs. MJD
             MJDNextDiff = (MJDvalNext - MJDvalCurr) / 2
 
-            # Make start of average period either the initial model time or the the first obs. time
+            # Make start of average period either the initial model time or the first obs. time
             # minus the mid-point of first and second MJD obs. time (i.e. make it symmetrical)
             startAvgPeriod = max(initTime, MJDvalCurr - MJDNextDiff)
             endAvgPeriod = (MJDvalNext + MJDvalCurr) / 2
@@ -210,7 +201,7 @@ def readObsFileAvg(obsFile, mjdFile, initTime, finalTime):
             # Calculate mid-point of penultimate and final obs. time
             MJDPrevDiff = (MJDvalCurr - MJDvalPrev) / 2
 
-            # Make start of average period either the final model time or the the last obs. time
+            # Make start of average period either the final model time or the last obs. time
             # minus the halved difference between penultimate and last MJD obs. time (i.e. make it symmetrical)
             startAvgPeriod = (MJDvalPrev + MJDvalCurr) / 2
             endAvgPeriod = min(MJDvalCurr + MJDPrevDiff, finalTime)
@@ -224,7 +215,7 @@ def readObsFileAvg(obsFile, mjdFile, initTime, finalTime):
             startAvgPeriod = (MJDvalPrev + MJDvalCurr) / 2
             endAvgPeriod = (MJDvalCurr + MJDvalNext) / 2
 
-        # This loop will exit either when the obsMJD time is first greater than the start of the averaging period
+        # This loop will exit either when the obsMJD time is first greater than the start of the averaging period,
         # or we've reached the end of the obs. file, in which case it breaks out of the loop
         while (obsMJDtime[cntMin] < startAvgPeriod) and (cntMin < (lenObs + 2)):
             if cntMin == (lenObs + 1):
@@ -340,10 +331,7 @@ def readObsLocFileWindows(obsLocFile, mjdCRFile, noOfWindows):
     return obsOut
 
 
-def getObsPos(
-        obsLocFile, earthLocFile, mjdCRFile, noOfWindows,
-        rS, innerRadRs, deltaRrs, deltaPhiDeg
-):
+def getObsPos(obsLocFile, earthLocFile, mjdCRFile, noOfWindows, rS, innerRadRs, deltaRrs, deltaPhiDeg):
     # Read in observation positions
     readObsPos = readObsLocFileWindows(obsLocFile, mjdCRFile, noOfWindows)
     readEarthPos = readObsLocFileWindows(earthLocFile, mjdCRFile, noOfWindows)
@@ -393,20 +381,17 @@ def makeMJDfile(MJDstart, noOfLon, fileMJDOut, daySolarRot=27.2753):
 
 
 def plotPriorErrCov(B, noOfLonPoints=128, local=False, minMax=5700):
-
     absLim = np.abs(minMax)
     levelStep = (2 * absLim) / 120
 
     # Make a plot of the prior error covariance matrix
-    fig = plt.figure()
-    im = plt.contourf(
-        range(noOfLonPoints), range(noOfLonPoints), B,
-        cmap=plt.cm.seismic, levels=range(-absLim, absLim, levelStep)
-    )
+    fig, ax = plt.subplots()
+    im = ax.contourf(range(noOfLonPoints), range(noOfLonPoints), B, cmap=plt.cm.seismic,
+                     levels=range(-absLim, absLim, levelStep))
     cobar = plt.colorbar(im)
     cobar.set_label('km/s')
-    plt.xlabel('Carrington longitude coordinate')
-    plt.ylabel('Carrington longitude coordinate')
+    ax.set_xlabel('Carrington longitude coordinate')
+    ax.set_ylabel('Carrington longitude coordinate')
     if local:
         plt.title('Localised B matrix')
     else:
@@ -417,10 +402,7 @@ def plotPriorErrCov(B, noOfLonPoints=128, local=False, minMax=5700):
     return
 
 
-def createUnpertAndBMatrix(
-        deltaPhiDeg, locRad, noOfLonPoints, ensFile,
-        initMJDCR, currMJD, noOfMASens, plotB=False, useLogTrans=False
-):
+def createUnpertAndBMatrix(deltaPhiDeg, locRad, noOfLonPoints, ensFile, initMJDCR, currMJD, noOfMASens, plotB=False):
     # Read ensemble file, extract the unperturbed first member to use as the prior
     # and generate the B matrix with the rest
 
@@ -468,10 +450,7 @@ def createUnpertAndBMatrix(
     return unperturbEnsMem, meanEns[:noOfLonPoints], B[:noOfLonPoints, :noOfLonPoints]
 
 
-def createUnpertAndBPrecond(
-        deltaPhiDeg, locRad, noOfLonPoints, ensFile,
-        initMJDCR, currMJD, noOfMASens, minSWspeed=None, plotB=False, useLogTrans=False
-):
+def createUnpertAndBPrecond(deltaPhiDeg, locRad, noOfLonPoints, ensFile, initMJDCR, currMJD, noOfMASens, plotB=False):
     # Read ensemble file, extract the unperturbed first member to use as the prior
     # and generate the B matrix with the rest
 
@@ -497,20 +476,6 @@ def createUnpertAndBPrecond(
     B_unloc = (1 / ((noOfMASens - 1) - 1)) * np.transpose(pertEns).dot(pertEns)
     B = np.copy(B_unloc)
 
-    if useLogTrans:
-        unperturbLogEnsMem = np.log(vIn[0, :] - 200)
-        # logEns = np.log(vIn[1:, :] - 200)
-        # meanLogEns = logEns.mean(axis=0)
-        # pertLogEns = logEns - meanLogEns
-
-        invDiagMean = np.diag([1.0/m for m in meanEns])
-        onesNN = np.ones((np.shape(B_unloc)))
-
-        Blog_unloc = np.log(onesNN + invDiagMean.dot(B_unloc).dot(invDiagMean))
-
-        meanLogEns = np.log(meanEns) - (0.5 * np.diagonal(Blog_unloc))
-        Blog = np.copy(Blog_unloc)
-
     if plotB:
         plotPriorErrCov(B_unloc, noOfLonPoints, local=False, minMax=5700)
 
@@ -527,10 +492,6 @@ def createUnpertAndBPrecond(
         B_loc = locMat * np.copy(B_unloc)
         B = np.copy(B_loc)
 
-        if useLogTrans:
-            Blog_loc = locMat * np.copy(Blog_unloc)
-            Blog = np.copy(Blog_loc)
-
         if plotB:
             plotPriorErrCov(B_loc, noOfLonPoints, local=True, minMax=5700)
 
@@ -543,22 +504,10 @@ def createUnpertAndBPrecond(
     assert (B_eval >= 0).all()
     sqrt_B = B_evect * np.sqrt(B_eval) @ np.linalg.inv(B_evect)
 
-    if useLogTrans:
-        # Compute eigenvalues and eigenvectors
-        Blog_eval, Blog_evect = np.linalg.eigh(Blog)
-
-        # Ensuring square root matrix exists
-        assert (Blog_eval >= 0).all()
-        sqrt_Blog = Blog_evect * np.sqrt(Blog_eval) @ np.linalg.inv(Blog_evect)
-
-        return unperturbEnsMem, meanEns[:noOfLonPoints], sqrt_B[:noOfLonPoints, :noOfLonPoints], unperturbLogEnsMem, meanLogEns[:noOfLonPoints], sqrt_Blog[:noOfLonPoints, :noOfLonPoints]
-    else:
-        return unperturbEnsMem, meanEns[:noOfLonPoints], sqrt_B[:noOfLonPoints, :noOfLonPoints]
+    return unperturbEnsMem, meanEns[:noOfLonPoints], sqrt_B[:noOfLonPoints, :noOfLonPoints]
 
 
-def forwardRadModelNoLat(
-        v, v0, r, rIndex, deltaR, deltaPhi, solarRotFreq, alpha, rH, noOfLonPoints
-):
+def forwardRadModelNoLat(v, v0, r, rIndex, deltaR, deltaPhi, solarRotFreq, alpha, rH, noOfLonPoints):
     # Run HUX model forward one timestep
 
     # Initialise output array
@@ -598,11 +547,8 @@ def forwardRadModelNoLat(
     return velOut
 
 
-def makePriors(
-        fileVrEns, initMJDCR, currMJD, locRadDeg, nEns,
-        r, rH, deltaRrs, deltaPhi, alpha, solarRotFreq,
-        noOfRadPoints, noOfLonPoints, useBlogTrans=False, precondState=False
-):
+def makePriors(fileVrEns, initMJDCR, currMJD, locRadDeg, nEns, r, rH, deltaRrs, deltaPhi, alpha, solarRotFreq,
+               noOfRadPoints, noOfLonPoints, precondState=False):
     # Localisation radius should be entered in degrees
     # deltaPhi should be in radians
 
@@ -613,20 +559,13 @@ def makePriors(
     # Make B matrix and extract prior state and ensemble Mean
     #########################################
     if precondState:
-        if useBlogTrans:
-            # Generate prior mean and prior covariance matrix
-            unpertEnsMem, meanPrior, Bhalf, unpertLogEnsMem, meanLogPrior, BlogHalf = createUnpertAndBPrecond(
-                deltaPhiDeg, locRadDeg, noOfLonPoints, fileVrEns, initMJDCR, currMJD, nEns, useLogTrans=useBlogTrans)
-        else:
-            # Generate prior mean and prior covariance matrix
-            unpertEnsMem, meanPrior, Bhalf = createUnpertAndBPrecond(deltaPhiDeg, locRadDeg, noOfLonPoints, fileVrEns,
-                                                                     initMJDCR, currMJD, nEns)
+        # Generate prior mean and prior covariance matrix
+        unpertEnsMem, meanPrior, Bhalf = createUnpertAndBPrecond(deltaPhiDeg, locRadDeg, noOfLonPoints, fileVrEns,
+                                                                 initMJDCR, currMJD, nEns)
     else:
         # Generate prior mean and prior covariance matrix
-        unpertEnsMem, meanPrior, B = createUnpertAndBMatrix(
-            deltaPhiDeg, locRadDeg, noOfLonPoints, fileVrEns,
-            initMJDCR, currMJD, nEns
-        )
+        unpertEnsMem, meanPrior, B = createUnpertAndBMatrix(deltaPhiDeg, locRadDeg, noOfLonPoints, fileVrEns,
+                                                            initMJDCR, currMJD, nEns)
 
     ##############################################
     # Generate prior and MAS Mean state (if using)
@@ -639,45 +578,32 @@ def makePriors(
     forwardStateMASMean = np.zeros((noOfRadPoints, noOfLonPoints))
     forwardStateMASMean[0, :] = np.copy(meanPrior[:])
 
-    if useBlogTrans:
-        forwardStateLogPrior = np.zeros((noOfRadPoints, noOfLonPoints))
-        forwardStateLogPrior[0, :] = unpertLogEnsMem.copy()
-
     ##########################################################################
     # Run solar wind propagation model to get estimates of the solar wind throughout domain
     ##########################################################################
     for rIndex in range(1, noOfRadPoints):
         # Run prior state forward
-        forwardStatePrior[rIndex, :] = forwardRadModelNoLat(
-            forwardStatePrior[rIndex - 1, :], forwardStatePrior[ 0, :],
-            r[rIndex - 1], rIndex - 1, deltaRrs, deltaPhi,
-            solarRotFreq, alpha, rH, noOfLonPoints
-        )
+        forwardStatePrior[rIndex, :] = forwardRadModelNoLat(forwardStatePrior[rIndex - 1, :], forwardStatePrior[0, :],
+                                                            r[rIndex - 1], rIndex - 1, deltaRrs, deltaPhi,
+                                                            solarRotFreq, alpha, rH, noOfLonPoints)
 
         # Run MAS Mean forward
-        forwardStateMASMean[rIndex, :] = forwardRadModelNoLat(
-            forwardStateMASMean[rIndex - 1, :], forwardStateMASMean[0, :],
-            r[rIndex - 1], rIndex - 1, deltaRrs, deltaPhi, solarRotFreq,
-            alpha, rH, noOfLonPoints
-        )
+        forwardStateMASMean[rIndex, :] = forwardRadModelNoLat(forwardStateMASMean[rIndex - 1, :],
+                                                              forwardStateMASMean[0, :], r[rIndex - 1], rIndex - 1,
+                                                              deltaRrs, deltaPhi, solarRotFreq, alpha, rH,
+                                                              noOfLonPoints)
 
     ######################################################################
     # Return prior state and error covariance matrix
     # (or sqrt if using preconditioned state)
     ######################################################################
     if precondState:
-        if useBlogTrans:
-            return Bhalf, forwardStatePrior, forwardStateMASMean, BlogHalf, forwardStateLogPrior
-        else:
-            return Bhalf, forwardStatePrior, forwardStateMASMean
+        return Bhalf, forwardStatePrior, forwardStateMASMean
     else:
-            return B, forwardStatePrior, forwardStateMASMean
+        return B, forwardStatePrior, forwardStateMASMean
 
 
-def makeObs(
-    fileObs, fileMJD, currMJD, noOfLonPoints,
-    lowerCutOff=0, upperCutOff=5000, useLogTrans=False
-):
+def makeObs(fileObs, fileMJD, currMJD, noOfLonPoints, lowerCutOff=0, upperCutOff=5000):
     #############################################################################
     # Generate observations from data in file
     #############################################################################
@@ -753,7 +679,8 @@ def possibleObsCheck(obsToUse):
 
     return
 
-def makeRcomp(obsUncDf, radCoordDict, nObsDict, vPrior, obsToUse, useLogTrans=False):
+
+def makeRcomp(obsUncDf, radCoordDict, nObsDict, vPrior, obsToUse):
     # Make R component of current observation
 
     # Calculate the uncertainty dependent on users choice in obsFile.dat
@@ -778,7 +705,6 @@ def makeRcomp(obsUncDf, radCoordDict, nObsDict, vPrior, obsToUse, useLogTrans=Fa
 
 
 def extractRadObs(obsToUse, radCoordDict, noOfObsDict, radObs, nRadObs):
-
     # Input radius of observations into radObs
     radObs.append(radCoordDict[obsToUse])
 
@@ -791,16 +717,12 @@ def extractRadObs(obsToUse, radCoordDict, noOfObsDict, radObs, nRadObs):
     return radObs, nRadObs
 
 
-def makeObsForDA(
-        y, H, R, yDict,
-        obsToUse, radCoordDict, lonCoordDict,
-        obsUncDf, obsToBeTakenDict, nObsDict, vPrior, noOfLonPoints,
-        useLogTrans=False
-):
+def makeObsForDA(y, H, R, yDict, obsToUse, radCoordDict, lonCoordDict, obsUncDf, obsToBeTakenDict, nObsDict, vPrior,
+                 noOfLonPoints):
     # Extract required observation
     yComp = yDict[obsToUse]
 
-    #Generate required component of observation covariance matrix
+    # Generate required component of observation covariance matrix
     Rcomp = makeRcomp(obsUncDf, radCoordDict, nObsDict, vPrior, obsToUse)
 
     # Generate observation operator for this component
@@ -815,7 +737,7 @@ def makeObsForDA(
     else:
         y = np.append(y, yComp)
 
-        # Append Rcomp diagonally onto existing R assuming obs are independent)
+        # Append Rcomp diagonally onto existing R assuming obs are independent
         # Calculate shape of R and Rcomp
         shapeR = np.shape(R)
         shapeRcomp = np.shape(Rcomp)
@@ -833,15 +755,10 @@ def makeObsForDA(
         # Append Hcomp onto H
         H = np.array(np.bmat([[H], [Hcomp]]))
 
-    # if useLogTrans:
-    #     return y, H, R, yLog, Rlog
-    # else:
     return y, H, R
 
 
-def TLMRadNoLat(
-        dv, v, r, rIndex, deltaR, deltaPhi, solarRotFreq, alpha, rH, noOfLonPoints
-):
+def TLMRadNoLat(dv, v, r, rIndex, deltaR, deltaPhi, solarRotFreq, alpha, rH, noOfLonPoints):
     # Calculate Tangent linear model for forwardRadModel
 
     # Initialise output TLM variable/perturbation
@@ -893,9 +810,7 @@ def TLMRadNoLat(
     return dvOut
 
 
-def adjRadNoLat(
-        dv9, v, r, rIndex, deltaR, deltaPhi, solarRotFreq, alpha, rH, noOfLonPoints
-):
+def adjRadNoLat(dv9, v, r, rIndex, deltaR, deltaPhi, solarRotFreq, alpha, rH, noOfLonPoints):
     # Calculate Adjoint model of forwardRadModel
 
     # Initialise output adjoint state
@@ -944,9 +859,7 @@ def adjRadNoLat(
     return dv9Out
 
 
-def adjointTestNoLat(
-        x, y, v, r, rIndex, deltaR, deltaPhi, solarRotFreq, alpha, rH, noOfLonPoints
-):
+def adjointTestNoLat(x, y, v, r, rIndex, deltaR, deltaPhi, solarRotFreq, alpha, rH, noOfLonPoints):
     #######################################################################
     # Code to test if <Fx,y>=<x,F^T y> holds for adjoint and TLM scripts
     #######################################################################
@@ -1024,10 +937,7 @@ def calcInnov(y, H, v, radObs, nRadObs):
     return innov
 
 
-
-def calcCostFuncNoLat(
-        B, R, H, x, xb, v, y, radObs, nRadObs
-):
+def calcCostFuncNoLat(B, R, H, x, xb, v, y, radObs, nRadObs):
     #################################################################
     # Function to calculate the cost function and print value
     #################################################################
@@ -1079,10 +989,8 @@ def calcCostFuncNoLat(
     return costFunc
 
 
-def calcCostFuncForCGNoLat(
-        xb, B, R, H, xBIter0, y, radObs, nRadObs, r, rH,
-        deltaR, deltaPhi, alpha, solarRotFreq, noOfRadPoints, noOfLonPoints
-):
+def calcCostFuncForCGNoLat(xb, B, R, H, xBIter0, y, radObs, nRadObs, r, rH, deltaR, deltaPhi, alpha, solarRotFreq,
+                           noOfRadPoints, noOfLonPoints):
     ############################################################################
     # Function to calculate the cost function for use in minimisation algorithm
     # (includes forwardRadModel run within it)
@@ -1147,10 +1055,8 @@ def calcCostFuncForCGNoLat(
     return costFunc
 
 
-def makeGradCGNoLat(
-        xb, B, R, H, xBIter0, y, radObs, nRadObs, r, rH, deltaR, deltaPhi, alpha, solarRotFreq,
-        noOfRadPoints, noOfLonPoints
-):
+def makeGradCGNoLat(xb, B, R, H, xBIter0, y, radObs, nRadObs, r, rH, deltaR, deltaPhi, alpha, solarRotFreq,
+                    noOfRadPoints, noOfLonPoints):
     ##############################################################################
     # Function that make the gradient of the cost function, for use within the
     # minimisation algorithm
@@ -1262,11 +1168,8 @@ def makeGradCGNoLat(
     return gradJout
 
 
-def calcCostFuncPrecond(
-        chi, xb, Bhalf, R, H, y, radObs, nRadObs,
-        r, rH, deltaRrs, deltaPhi, alpha, solarRotFreq,
-        noOfRadPoints, noOfLonPoints, printCF=False, useLogTrans=False
-):
+def calcCostFuncPrecond(chi, xb, Bhalf, R, H, y, radObs, nRadObs,  r, rH, deltaRrs, deltaPhi, alpha, solarRotFreq,
+                        noOfRadPoints, noOfLonPoints, printCF=False):
     #################################################################
     # Function to calculate the cost function and print value
     #################################################################
@@ -1329,11 +1232,8 @@ def calcCostFuncPrecond(
     return costFunc
 
 
-def makeGradCGPrecond(
-        chi, xb, Bhalf, R, H, y, radObs, nRadObs,
-        r, rH, deltaR, deltaPhi, alpha, solarRotFreq,
-        noOfRadPoints, noOfLonPoints, printCF=False, useLogTrans=False
-):
+def makeGradCGPrecond(chi, xb, Bhalf, R, H, y, radObs, nRadObs, r, rH, deltaR, deltaPhi, alpha, solarRotFreq,
+                      noOfRadPoints, noOfLonPoints):
     ##############################################################################
     # Function that make the gradient of the cost function, for use within the
     # minimisation algorithm
@@ -1439,31 +1339,14 @@ def calcStateObsRMSE(state, obs):
     return rmseOut
 
 
-def plotSWspeed(
-        deltaPhiDeg, vPlot, outputDir, spacecraftName, currMJD, fontSize=18, lWid=2.0
-):
-    fig, ax = plt.subplots(
-        nrows=1, ncols=1, figsize=(12, 6),
-        # constrained_layout=True
-    )
+def plotSWspeed(deltaPhiDeg, vPlot, outputDir, spacecraftName, currMJD, fontSize=18, lWid=2.0):
 
-    # plt.figure(figsize=(12, 6))
-    ax.plot(
-        np.arange(0, 359, deltaPhiDeg), vPlot[0, :],
-        color='k', linewidth=lWid, label=f'{spacecraftName} Data'
-    )
-    ax.plot(
-        np.arange(0, 359, deltaPhiDeg), vPlot[1, :],
-        color='m', linewidth=lWid, label='MAS ens. mean'
-    )
-    ax.plot(
-        np.arange(0, 359, deltaPhiDeg), vPlot[2, :],
-        color='b', linewidth=lWid, label='Prior'
-    )
-    ax.plot(
-        np.arange(0, 359, deltaPhiDeg), vPlot[3, :],
-        color='g', linewidth=lWid, label='Posterior'
-    )
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 6))
+
+    ax.plot(np.arange(0, 359, deltaPhiDeg), vPlot[0, :], color='k', linewidth=lWid, label=f'{spacecraftName} Data')
+    ax.plot(np.arange(0, 359, deltaPhiDeg), vPlot[1, :], color='m', linewidth=lWid, label='MAS ens. mean')
+    ax.plot(np.arange(0, 359, deltaPhiDeg), vPlot[2, :], color='b', linewidth=lWid, label='Prior')
+    ax.plot(np.arange(0, 359, deltaPhiDeg), vPlot[3, :], color='g', linewidth=lWid, label='Posterior')
     ax.set_xlabel('Time (days)', fontsize=fontSize)
     ax.set_ylabel('Speed (km/s)', fontsize=fontSize)
     ax.set_xlim(0, 360)
@@ -1480,13 +1363,9 @@ def plotSWspeed(
     ax.set_xticks(np.append(np.arange(0, 361, 53.3), 360))
     ax.set_xticklabels(['0', '4', '8', '12', '16', '20', '24', '27'])
 
-    # ax.set_xticks(
-    #    np.append(np.arange(0, 361, 53.3), 360), ('0', '4', '8', '12', '16', '20', '24', '27'),
-    #    fontsize=fontSize)
     # if w == 0:
     plt.title(fr'Solar wind speed at {spacecraftName}', fontsize=fontSize)
     ax.legend()
-    # plt.tight_layout()
     saveFileLoc = os.path.join(outputDir, f'SWspeed{spacecraftName}_MJDstart{int(currMJD)}.pdf')
     plt.savefig(saveFileLoc)
     plt.show()
@@ -1494,31 +1373,14 @@ def plotSWspeed(
     return fig, ax
 
 
-def plotSWspeedDict(
-        deltaPhiDeg, vPlotDict, outputDir, spacecraftName, currMJD, fontSize=18, lWid=2.0
-):
-    fig, ax = plt.subplots(
-        nrows=1, ncols=1, figsize=(12, 6),
-        # constrained_layout=True
-    )
-    #columns = ["observations", "ensMean", "prior", "posterior"]
-    # plt.figure(figsize=(12, 6))
-    ax.plot(
-        np.arange(0, 359, deltaPhiDeg), vPlotDict.loc["observations"],
-        color='k', linewidth=lWid, label=f'{spacecraftName} Data'
-    )
-    ax.plot(
-        np.arange(0, 359, deltaPhiDeg), vPlotDict.loc["ensMean"],
-        color='m', linewidth=lWid, label='MAS ens. mean'
-    )
-    ax.plot(
-        np.arange(0, 359, deltaPhiDeg), vPlotDict.loc["prior"],
-        color='b', linewidth=lWid, label='Prior'
-    )
-    ax.plot(
-        np.arange(0, 359, deltaPhiDeg), vPlotDict.loc["posterior"],
-        color='g', linewidth=lWid, label='Posterior'
-    )
+def plotSWspeedDict(deltaPhiDeg, vPlotDict, outputDir, spacecraftName, currMJD, fontSize=18, lWid=2.0):
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 6))
+
+    lons = np.arange(0, 359, deltaPhiDeg)
+    ax.plot(lons, vPlotDict.loc["observations"], color='k', linewidth=lWid, label=f'{spacecraftName} Data')
+    ax.plot(lons, vPlotDict.loc["ensMean"], color='m', linewidth=lWid, label='MAS ens. mean')
+    ax.plot(lons, vPlotDict.loc["prior"], color='b', linewidth=lWid, label='Prior')
+    ax.plot(lons, vPlotDict.loc["posterior"], color='g', linewidth=lWid, label='Posterior')
     ax.set_xlabel('Time (days)', fontsize=fontSize)
     ax.set_ylabel('Speed (km/s)', fontsize=fontSize)
     ax.set_xlim(0, 360)
@@ -1535,15 +1397,9 @@ def plotSWspeedDict(
     ax.set_xticks(np.append(np.arange(0, 361, 53.3), 360))
     ax.set_xticklabels(['0', '4', '8', '12', '16', '20', '24', '27'])
 
-    # ax.set_xticks(
-    #    np.append(np.arange(0, 361, 53.3), 360), ('0', '4', '8', '12', '16', '20', '24', '27'),
-    #    fontsize=fontSize)
-    # if w == 0:
     plt.title(fr'Solar wind speed at {spacecraftName}', fontsize=fontSize)
     ax.legend()
-    # plt.tight_layout()
     saveFileLoc = os.path.join(outputDir, f'SWspeed{spacecraftName}_MJDstart{int(currMJD)}.pdf')
     plt.savefig(saveFileLoc)
-    # plt.show()
 
     return fig, ax

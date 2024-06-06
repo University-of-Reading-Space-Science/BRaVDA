@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jun 15 17:18:32 2021
-
-@author: mathewjowens
-Editted by Matthew Lang
-"""
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial import cKDTree
@@ -12,7 +5,6 @@ import cycler
 import matplotlib as mpl
 
 
-# <codecell> Helper functions
 def interp2d(xi, yi, V, x, y, n_neighbour=4):
     """
     Fast 3d interpolation on an irregular grid. Uses the K-Dimensional Tree
@@ -71,7 +63,7 @@ def interp2d(xi, yi, V, x, y, n_neighbour=4):
     # d, inds = tree.query(newgridpoints, k = 1)
     # rho_ls[:,ie]=rholist[inds]
 
-    # weighted sum of N nearest points
+    # weighted sum of the N nearest points
     distance, index = tree.query(newgridpoints, k=n_neighbour)
     # tree.query  will sometimes return an index past the end of the grid list?
     index[index >= len(gridpoints)] = len(gridpoints) - 1
@@ -107,11 +99,8 @@ def _zerototwopi_(angles):
     return angles_out
 
 
-# <codecell> generate ensembles
-def generate_input_ensemble(phi, theta, vr_map,
-                            reflats, Nens=100,
-                            lat_rot_sigma=5 * np.pi / 180, lat_dev_sigma=2 * np.pi / 180,
-                            long_dev_sigma=2 * np.pi / 180):
+def generate_input_ensemble(phi, theta, vr_map, reflats, Nens=100, lat_rot_sigma=5 * np.pi / 180,
+                            lat_dev_sigma=2 * np.pi / 180, long_dev_sigma=2 * np.pi / 180):
     """
     a function generate an ensemble of solar wind speed BRaVDA inputs from a
     V map such as provided by PFSS, DUMFRIC, HelioMAS. The first ensemble
@@ -124,9 +113,9 @@ def generate_input_ensemble(phi, theta, vr_map,
     phi : Float array, dimensions (nlong, nlat)
         The Carrington longitude in radians
     theta : Float array, dimensions (nlong, nlat)
-        The heliographic longitude in radians (from equator)
+        The heliographic longitude in radians (from the equator)
     reflats : float array, dimensions (nlong)
-        The Earth's latitude in radians (from equator)
+        The Earth's latitude in radians (from the equator)
     Nens : Integer
         The number of ensemble members to generate
     lat_rot_sigma : float
@@ -180,9 +169,6 @@ def generate_input_ensemble(phi, theta, vr_map,
     return vr_ensemble
 
 
-# <codecell> post-processing
-
-# compute the percentiles
 def getconfidintervals(endata, confid_intervals):
     L = len(endata[0, :])
     n = len(confid_intervals) * 2 + 1
@@ -197,7 +183,6 @@ def getconfidintervals(endata, confid_intervals):
     return confid_ts
 
 
-# plot the percentiles
 def plotconfidbands(tdata, endata, confid_intervals):
     n = len(confid_intervals) * 2 + 1
     # get confid intervals

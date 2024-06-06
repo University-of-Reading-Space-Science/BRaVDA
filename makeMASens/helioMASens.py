@@ -1,11 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jun 18 16:23:15 2021
-
-@author: mathewjowens
-Ediited by Matthew Lang
-"""
-
 import os
 import sys
 import numpy as np
@@ -14,6 +6,7 @@ import makeMASens.downMASfc as dmf
 import makeMASens.bravdaEns as bEns
 import pandas as pd
 import h5py
+
 
 def observerReadH5(ephFile, body, times):
     # Function to extract the locations of a celestrial body/spacecraft specified in the
@@ -42,7 +35,6 @@ def observerReadH5(ephFile, body, times):
         print(f'Only {possibleBodies} are valid.')
         print('Defaulting to Earth')
         body = ['EARTH']
-
 
     with h5py.File(fileName, "r") as f:
         # Extract variables
@@ -95,11 +87,8 @@ def observerReadH5(ephFile, body, times):
     return df
 
 
-def makeMASens(
-        crMJDFile, cr_start, cr_end, nMASens, nLon, ephemFile, masMapsDir, ensSaveDir,
-        lat_rot_sigma=5 * np.pi / 180, lat_dev_sigma=2 * np.pi / 180,
-        long_dev_sigma=2 * np.pi / 180, r_in=30
-):
+def makeMASens(crMJDFile, cr_start, cr_end, nMASens, nLon, ephemFile, masMapsDir, ensSaveDir,
+               lat_rot_sigma=5 * np.pi / 180, lat_dev_sigma=2 * np.pi / 180, long_dev_sigma=2 * np.pi / 180, r_in=30):
     # Function to generate MAS ensemble members and download MAS model runs if they don't exist
     # crMJDFile: File containing the start times of all Carrington Rotations
     # cr_start: Initial carrington rotation required
@@ -108,7 +97,7 @@ def makeMASens(
     # nLon: Number of longitude points in each ens. member
     # ephemFile: Location of ephemeris file containing Earth's positional data
     # masMapsDir: Directory containing MAS maps (if they exist, if it doesn't, new directory will be made)
-    # ensSaveDir: Directory to save ensembles to (if doesn't exist, new directory will be created)
+    # ensSaveDir: Directory to save ensembles to (if it doesn't exist, new directory will be created)
     # lat_rot_sigma: The standard deviation of the Gaussian from which the rotational perturbation is drawn
     # lat_dev_sigma: The standard deviation of the Gaussian from which the linear
     #               latitudinal perturbation is drawn
@@ -163,10 +152,7 @@ def makeMASens(
         # Make time-series of all times that need to be extracted from each MAS map
         deltaT = ast.TimeDelta(winCREnd - winCRStart, format='sec') / nLon
 
-        timeGrid = ast.Time(
-            [winCRStart + (deltaT * i)
-             for i in range(nLon)]
-        )
+        timeGrid = ast.Time([winCRStart + (deltaT * i) for i in range(nLon)])
         crLonGrid = np.arange(360, 0, -360.0 / nLon)
 
         # Get the MAS maps
@@ -179,8 +165,7 @@ def makeMASens(
             earth = observerReadH5(ephemFile, 'Earth', timeGrid)
 
             # get Earth lat as a function of longitude (not time)
-            E_lat = np.interp(vr_longs * 180 / np.pi, np.flipud(crLonGrid),
-                              np.flipud(earth['hgiLatDeg']))
+            E_lat = np.interp(vr_longs * 180 / np.pi, np.flipud(crLonGrid), np.flipud(earth['hgiLatDeg']))
 
             # Convert E_lat to radians
             E_lat = E_lat * np.pi / 180.0
@@ -191,10 +176,9 @@ def makeMASens(
             # generate the meshed grid
             phi, theta = np.meshgrid(vr_longs, vr_lats)
 
-            vr_ensemble = bEns.generate_input_ensemble(
-                phi, theta, vr_map, reflats=E_lat, Nens=nMASens,
-                lat_rot_sigma=lat_rot_sigma, lat_dev_sigma=lat_dev_sigma, long_dev_sigma=long_dev_sigma
-            )
+            vr_ensemble = bEns.generate_input_ensemble(phi, theta, vr_map, reflats=E_lat, Nens=nMASens,
+                                                       lat_rot_sigma=lat_rot_sigma, lat_dev_sigma=lat_dev_sigma,
+                                                       long_dev_sigma=long_dev_sigma)
 
             # resample the ensemble to 128 longitude bins
             vr128_ensemble = np.ones((nMASens, nLon))
@@ -202,9 +186,7 @@ def makeMASens(
             phi128 = np.linspace(dphi / 2, 2 * np.pi - dphi / 2, nLon)
 
             for i in range(0, nMASens):
-                vr128_ensemble[i, :] = np.interp(
-                    phi128, vr_longs, vr_ensemble[i, :]
-                )
+                vr128_ensemble[i, :] = np.interp(phi128, vr_longs, vr_ensemble[i, :])
 
             # ==============================================================================
             # save the ensemble for use in  BRaVDA
