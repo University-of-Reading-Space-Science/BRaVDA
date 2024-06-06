@@ -1,0 +1,12 @@
+#[1] Number of Longitude Points (will be spread evenly around 360deg)
+128
+#[3] Inner Radius (divided by rS, ie. a value of 30 yields an inner radius of 30rS)
+30
+#[5] Outer Radius (divided by rS, as above, 215 rS is Earth Radius)
+240
+#[7] Radial gridspace (deltaR, divided by rS as above)
+1
+#[9] Alpha (for use in solar wind propagation model, default=0.15)
+0.15
+#[11] r_H (for use in solar wind propagation model, default=50, value divided by rS as above)
+50
