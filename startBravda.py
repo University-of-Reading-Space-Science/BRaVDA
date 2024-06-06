@@ -7,7 +7,7 @@ import pandas as pd
 
 
 
-def bravdafunction(forecastdate, obsToAssim = 'C', usecustomens = True,
+def bravdafunction(forecastdate, configFile, obsToAssim = 'C', usecustomens = True,
                    runoutputdir = '', plottimeseries = True, corona = 'MAS',
                    precondState = False, useLogTrans = False):
     rdm.seed(20000)
@@ -25,7 +25,7 @@ def bravdafunction(forecastdate, obsToAssim = 'C', usecustomens = True,
     ###########################################################
     # Specify location of config file containing all necessary files and directories
     # (relative to the location of the currentDir)
-    configFile = os.path.join(currentDir, 'configBravda.dat')
+    # configFile = os.path.join(currentDir, 'configBravda.dat')
     
     # Specify location of file containing necessary HUX variables
     if corona == 'MAS':
@@ -37,7 +37,7 @@ def bravdafunction(forecastdate, obsToAssim = 'C', usecustomens = True,
     if runoutputdir:
         outputDir = runoutputdir
     else:
-        outputDir = os.path.join(currentDir, 'test')
+        outputDir = os.path.join(currentDir, 'BRaVDA_test', 'Solar_max_test')
     
     ####################################################################
     # Choose which date to run BRaVDA from and for how many consecutive
@@ -101,7 +101,9 @@ if __name__=="__main__":
     dates = pd.date_range(start_date, end_date, freq='D')
 
     # Specify forecastDate
-    fcDate = datetime.datetime(2010, 5, 19)
+    fcDate = datetime.datetime(2013, 8, 4)
+    currentDir = os.path.dirname(os.path.abspath(rbe.__file__))
+    configFile = os.path.join(currentDir, 'configBravda.dat')
     precondState = True
     useLogTrans = False
     """
@@ -114,6 +116,6 @@ if __name__=="__main__":
     """
 
     bravdafunction(
-        fcDate, obsToAssim=["STERA", "STERB", "OMNI"], usecustomens=False, runoutputdir='', plottimeseries=True,
-        corona='MAS', precondState=precondState, useLogTrans=useLogTrans
+        fcDate, configFile, obsToAssim=["STERA", "STERB", "OMNI"], usecustomens=False, runoutputdir='',
+        plottimeseries=True, corona='MAS', precondState=precondState, useLogTrans=useLogTrans
     )
