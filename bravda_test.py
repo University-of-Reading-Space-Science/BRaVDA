@@ -1,6 +1,3 @@
-__author__ = 'Harriet Turner'
-__email__ = 'h.m.turner@reading.ac.uk'
-
 import pytest
 import startBravda
 from datetime import datetime
@@ -24,15 +21,12 @@ def test_solar_min_run():
     # specific configuration file for this run
     config_file = os.path.join(current_dir, 'BRaVDA_test', 'solar_min_config.dat')
     precondState = True
-    useLogTrans = False
     # output directory
     output_dir = os.path.join(current_dir, 'BRaVDA_test', 'Solar_min_test')
 
     # running BRaVDA
-    startBravda.bravdafunction(
-        fcDate, config_file, obsToAssim=["STERA", "STERB", "OMNI"], usecustomens=False, runoutputdir=output_dir,
-        plottimeseries=True, corona='MAS', precondState=precondState, useLogTrans=useLogTrans
-    )
+    startBravda.bravdafunction(fcDate, config_file, obsToAssim=["STERA", "STERB", "OMNI"], usecustomens=False,
+                               runoutputdir=output_dir, plottimeseries=True, corona='MAS', precondState=precondState)
 
     return
 
@@ -47,8 +41,8 @@ def test_solar_min_prior():
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     # loading in the reference prior
-    prior_ref_file = os.path.join(current_dir, 'BRaVDA_test', 'Solar_min_test_reference',
-                                  'prior', 'prior_MJDstart54871.txt')
+    prior_ref_file = os.path.join(current_dir, 'BRaVDA_test', 'Solar_min_test_reference', 'prior',
+                                  'prior_MJDstart54871.txt')
     prior_ref = np.loadtxt(prior_ref_file)
 
     # loading in the new prior
@@ -71,13 +65,13 @@ def test_solar_min_post():
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     # loading in the reference posterior
-    post_ref_file = os.path.join(current_dir, 'BRaVDA_test', 'Solar_min_test_reference',
-                                 'posterior', 'posterior_MJDstart54871.txt')
+    post_ref_file = os.path.join(current_dir, 'BRaVDA_test', 'Solar_min_test_reference', 'posterior',
+                                 'posterior_MJDstart54871.txt')
     post_ref = np.loadtxt(post_ref_file)
 
     # loading in the new posterior
-    post_new_file = os.path.join(current_dir, 'BRaVDA_test', 'Solar_min_test',
-                                 'posterior', 'posterior_MJDstart54871.txt')
+    post_new_file = os.path.join(current_dir, 'BRaVDA_test', 'Solar_min_test', 'posterior',
+                                 'posterior_MJDstart54871.txt')
     post_new = np.loadtxt(post_new_file)
 
     # testing to see if the priors are the same within some tolerance
@@ -102,15 +96,12 @@ def test_solar_max_run():
     # specific configuration file for this run
     config_file = os.path.join(current_dir, 'BRaVDA_test', 'solar_max_config.dat')
     precondState = True
-    useLogTrans = False
     # output directory
     output_dir = os.path.join(current_dir, 'BRaVDA_test', 'Solar_max_test')
 
     # running BRaVDA
-    startBravda.bravdafunction(
-        fcDate, config_file, obsToAssim=["STERA", "STERB", "OMNI"], usecustomens=False, runoutputdir=output_dir,
-        plottimeseries=True, corona='MAS', precondState=precondState, useLogTrans=useLogTrans
-    )
+    startBravda.bravdafunction(fcDate, config_file, obsToAssim=["STERA", "STERB", "OMNI"], usecustomens=False,
+                               runoutputdir=output_dir, plottimeseries=True, corona='MAS', precondState=precondState)
 
     return
 
@@ -125,8 +116,8 @@ def test_solar_max_prior():
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     # loading in the reference prior
-    prior_ref_file = os.path.join(current_dir, 'BRaVDA_test', 'Solar_max_test_reference',
-                                  'prior', 'prior_MJDstart56480.txt')
+    prior_ref_file = os.path.join(current_dir, 'BRaVDA_test', 'Solar_max_test_reference', 'prior',
+                                  'prior_MJDstart56480.txt')
     prior_ref = np.loadtxt(prior_ref_file)
 
     # loading in the new prior
@@ -149,13 +140,13 @@ def test_solar_max_post():
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     # loading in the reference posterior
-    post_ref_file = os.path.join(current_dir, 'BRaVDA_test', 'Solar_max_test_reference',
-                                 'posterior', 'posterior_MJDstart56480.txt')
+    post_ref_file = os.path.join(current_dir, 'BRaVDA_test', 'Solar_max_test_reference', 'posterior',
+                                 'posterior_MJDstart56480.txt')
     post_ref = np.loadtxt(post_ref_file)
 
     # loading in the new posterior
-    post_new_file = os.path.join(current_dir, 'BRaVDA_test', 'Solar_max_test',
-                                 'posterior', 'posterior_MJDstart56480.txt')
+    post_new_file = os.path.join(current_dir, 'BRaVDA_test', 'Solar_max_test', 'posterior',
+                                 'posterior_MJDstart56480.txt')
     post_new = np.loadtxt(post_new_file)
 
     # testing to see if the priors are the same within some tolerance
