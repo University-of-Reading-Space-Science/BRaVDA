@@ -7,20 +7,20 @@ import pandas as pd
 
 def bravdafunction(forecastdate, configFile, obsToAssim='C', usecustomens=True, runoutputdir='', plottimeseries=True,
                    corona='MAS', precondState=False):
+
     rdm.seed(20000)
     #################################
     # Data to be provided by user
     #################################
     # Find current directory
     currentDir = os.path.dirname(os.path.abspath(rbe.__file__))
-    # make this the owrking directory?
+    # make this the working directory?
 
     ###########################################################
     # Define relevant file/directories to runBravda function
     ###########################################################
     # Specify location of config file containing all necessary files and directories
     # (relative to the location of the currentDir)
-    # configFile = os.path.join(currentDir, 'configBravda.dat')
 
     # Specify location of file containing necessary HUX variables
     if corona == 'MAS':
@@ -89,24 +89,12 @@ def bravdafunction(forecastdate, configFile, obsToAssim='C', usecustomens=True, 
 
 
 if __name__ == "__main__":
-    start_date = datetime.datetime(2023, 4, 14)
-    end_date = datetime.datetime(2024, 4, 14)
-    dates = pd.date_range(start_date, end_date, freq='D')
 
     # Specify forecastDate
     fcDate = datetime.datetime(2013, 8, 4)
     currentDir = os.path.dirname(os.path.abspath(rbe.__file__))
     configFile = os.path.join(currentDir, 'configBravda.dat')
     precondState = True
-    useLogTrans = False
-    """
-    for date in dates:
-        # Run BRaVDA function
-        bravdafunction(
-            date, obsToAssim=["OMNI"], usecustomens=False, runoutputdir='', plottimeseries=True,
-            corona='MAS', precondState=precondState, useLogTrans=useLogTrans
-        )
-    """
 
     bravdafunction(fcDate, configFile, obsToAssim=["STERA", "STERB", "OMNI"], usecustomens=False, runoutputdir='',
-        plottimeseries=True, corona='MAS', precondState=precondState)
+                   plottimeseries=True, corona='MAS', precondState=precondState)

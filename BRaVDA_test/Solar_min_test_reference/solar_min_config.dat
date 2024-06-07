@@ -5,6 +5,6 @@ downMas/
 #[5] Directory containing ensemble files used to generate B (if they don't exist, they will be created)
 masEns/
 #[7] File containing all observation filenames and obsName
-obsFile.dat
+BRaVDA_test/solar_min_obs_file.dat
 #[9] File containing positions of ACE/EARTH for each Carrington Rotation
 Obs/AbsLocFiles/earth_2000_2030.lst

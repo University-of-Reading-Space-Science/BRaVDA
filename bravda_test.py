@@ -1,4 +1,3 @@
-import pytest
 import startBravda
 from datetime import datetime
 import numpy as np
@@ -150,6 +149,9 @@ def test_solar_max_post():
     post_new = np.loadtxt(post_new_file)
 
     # testing to see if the priors are the same within some tolerance
+    dv = post_ref - post_new
+    print(np.max(dv))
+    print(np.min(dv))
     assert np.allclose(post_ref, post_new)
 
     return

@@ -281,21 +281,16 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR, initDate,
 
                 # Generate path to ephemerisMSL.hdf5 file (should be in makeMASens, don't move)
                 ephemFile = os.path.join(currentDir, 'makeMASens', 'ephemerisMSL.hdf5')
-                helioMASens.makeMASens(
-                    fileCRstartMJD, currCR[w], currCR[w] + 1, nMASens, noOfLonPoints,
-                    ephemFile, downMASdir, dirMASens,
-                    lat_rot_sigma=5 * np.pi / 180, lat_dev_sigma=2 * np.pi / 180,
-                    long_dev_sigma=2 * np.pi / 180, r_in=innerRad
-                )
+                helioMASens.makeMASens(fileCRstartMJD, currCR[w], currCR[w] + 1, nMASens, noOfLonPoints, ephemFile,
+                                       downMASdir, dirMASens, lat_rot_sigma=5 * np.pi / 180,
+                                       lat_dev_sigma=2 * np.pi / 180, long_dev_sigma=2 * np.pi / 180, r_in=innerRad)
             else:
                 print(f'MAS ensembles exist for CR {currCR[w]}')
 
     ############################################################################
     # Check if mid-points file exists for these windows, if not, make it
     ############################################################################
-    mjdCRFile = os.path.join(
-        outputDir, 'MJDfiles', f'MJDMidPoints_{int(currMJD[0])}_{int(currMJD[-1])}.dat'
-    )
+    mjdCRFile = os.path.join(outputDir, 'MJDfiles', f'MJDMidPoints_{int(currMJD[0])}_{int(currMJD[-1])}.dat')
     if not os.path.isfile(mjdCRFile):
         with open(mjdCRFile, 'w') as mjdMidFile:
             for i in range(noOfWindows):
@@ -308,10 +303,8 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR, initDate,
     obsPosDf = pd.DataFrame(columns=["radAU", "radRs", "radKm", "radCoord", "lon", "lonCoord"])
     for obsName in obsFileDf.index:
         fObsLoc = obsFileDf.loc[obsName]["obsLocFilePath"]
-        radAU, radRs, radKm, radCoord, lon, lonCoord = bme.getObsPos(
-            fObsLoc, earthLocFile, mjdCRFile, noOfWindows,
-            rS, innerRadRs, deltaRrs, deltaPhiDeg
-        )
+        radAU, radRs, radKm, radCoord, lon, lonCoord = bme.getObsPos(fObsLoc, earthLocFile, mjdCRFile, noOfWindows,
+                                                                     rS, innerRadRs, deltaRrs, deltaPhiDeg)
         obsPosDf.loc[obsName] = [radAU, radRs, radKm, radCoord, lon, lonCoord]
 
     print(obsPosDf)
@@ -397,7 +390,6 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR, initDate,
 
         # Extract total number of observations
         noOfObsTotal = int(nRadObs[-1])
-        lenRadObs = len(radObs)
 
         # Print number of observations
         for obsName in obsCompDf.index:
@@ -441,9 +433,8 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR, initDate,
             ###########################################################################################
             # Perform minimisation of cost function to obtain analysis state
             resOpt = optimize.minimize(fun=bme.calcCostFuncPrecond, x0=chi, args=(xb, Bhalf, R, H, y, radObs, nRadObs,
-                                       r, rH, deltaRrs, deltaPhi, alpha, solarRotFreq, noOfRadPoints, noOfLonPoints,
-                                       False, False), method='BFGS', jac=bme.makeGradCGPrecond, options={'gtol': gTol,
-                                       'disp': True})
+                                       r, rH, deltaRrs, deltaPhi, alpha, solarRotFreq, noOfRadPoints, noOfLonPoints),
+                                       method='BFGS', jac=bme.makeGradCGPrecond, options={'gtol': gTol, 'disp': True})
 
             ###########################################################################
             # Extract the  analysis solar wind speed in both speed matrix and state vector form
@@ -627,27 +618,19 @@ def runBravDA(configFile, huxVarFile, outputDir, obsToAssim, setupOfR, initDate,
             # during solar rotation to file for later use
             # Data output is ASCENDING IN TIME
             ######################################################################################
-            outObsFile = os.path.join(
-                outputDir, obsName, f'obs_MJDstart{int(currMJD[w])}.txt'
-            )
+            outObsFile = os.path.join(outputDir, obsName, f'obs_MJDstart{int(currMJD[w])}.txt')
             with open(outObsFile, 'w') as fOut:
                 np.savetxt(fOut, vPlotDf.loc[obsName]["observations"])
 
-            outEnsFile = os.path.join(
-                outputDir, obsName, f'ensMean_MJDstart{int(currMJD[w])}.txt'
-            )
+            outEnsFile = os.path.join(outputDir, obsName, f'ensMean_MJDstart{int(currMJD[w])}.txt')
             with open(outEnsFile, 'w') as fOut:
                 np.savetxt(fOut, vPlotDf.loc[obsName]["ensMean"])
 
-            outPriorFile = os.path.join(
-                outputDir, obsName, f'prior_MJDstart{int(currMJD[w])}.txt'
-            )
+            outPriorFile = os.path.join(outputDir, obsName, f'prior_MJDstart{int(currMJD[w])}.txt')
             with open(outPriorFile, 'w') as fOut:
                 np.savetxt(fOut, vPlotDf.loc[obsName]["prior"])
 
-            outPostFile = os.path.join(
-                outputDir, obsName, f'post_MJDstart{int(currMJD[w])}.txt'
-            )
+            outPostFile = os.path.join(outputDir, obsName, f'post_MJDstart{int(currMJD[w])}.txt')
             with open(outPostFile, 'w') as fOut:
                 np.savetxt(fOut, vPlotDf.loc[obsName]["posterior"])
 

@@ -1,4 +1,4 @@
-outputDir = /Users/yx919401/Documents/PDRA/BRaVDA-master/BRaVDA_test/Solar_min_test
+outputDir = C:\Users\yq904481\research\repos\BRaVDA\BRaVDA_test\Solar_min_test
 obsToAssim = ['STERA', 'STERB', 'OMNI']
 setupOfR = B 0.1 0.1 0.1
 initDate = 09022009
